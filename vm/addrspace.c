@@ -57,6 +57,21 @@ as_create(void)
 	return as;
 }
 
+/* Allocate/free some kernel-space virtual pages */
+vaddr_t
+alloc_kpages(unsigned npages)
+{
+	//return PADDR_TO_KVADDR();
+}
+
+void
+free_kpages(vaddr_t addr)
+{
+	/* nothing - leak the memory. */
+
+	(void)addr;
+}
+
 int
 as_copy(struct addrspace *old, struct addrspace **ret)
 {

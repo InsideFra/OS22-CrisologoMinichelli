@@ -104,28 +104,6 @@ getppages(unsigned long npages)
 	return addr;
 }
 
-/* Allocate/free some kernel-space virtual pages */
-vaddr_t
-alloc_kpages(unsigned npages)
-{
-	paddr_t pa;
-
-	dumbvm_can_sleep();
-	pa = getppages(npages);
-	if (pa==0) {
-		return 0;
-	}
-	return PADDR_TO_KVADDR(pa);
-}
-
-void
-free_kpages(vaddr_t addr)
-{
-	/* nothing - leak the memory. */
-
-	(void)addr;
-}
-
 void
 vm_tlbshootdown(const struct tlbshootdown *ts)
 {
