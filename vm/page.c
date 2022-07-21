@@ -3,6 +3,7 @@
 
 #include <types.h>
 #include <vm.h>
+#include <spinlock.h>
 
 // You can find information in the vm.h include file
 
@@ -18,6 +19,8 @@
 #define PAGETABLE_SPACE 8192
 
 #define PAGETABLE_ENTRY PAGETABLE_SPACE/PTLR_
+
+static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
 
 // We need to divide the physiical memory into fixed-sized blocks called FRAMES
 // Divide logical memory into blocks of same size called pages
@@ -35,6 +38,13 @@ static struct PG_ {
 vaddr_t
 alloc_kpages(unsigned npages)
 {
+    paddr_t addr;
+	spinlock_acquire(&stealmem_lock);
+	addr = ram_stealmem(npages);
+	spinlock_release(&stealmem_lock);
+	if (addr==0) {
+		return 0;
+	}
 
     int first_valid_page_number = 0;
     _Bool valid_pages_founded = 0;
@@ -66,12 +76,12 @@ alloc_kpages(unsigned npages)
         for (unsigned int i = 0; i < npages; i++) {
             main_PG[first_valid_page_number+i].Valid = 1;
             // DEBUG
-            main_PG[first_valid_page_number+i].frame_number = PADDR_TO_VADDR(first_valid_page_number);
+            main_PG[first_valid_page_number+i].frame_number = PADDR_TO_KVADDR(addr);
         }
 
-        return PADDR_TO_VADDR(first_valid_page_number);
+        return PADDR_TO_KVADDR(addr);
     }
-    return NULL;
+    return 0;
 }
 
 void
