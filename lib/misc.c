@@ -43,7 +43,18 @@ kstrdup(const char *s)
 	if (z == NULL) {
 		return NULL;
         }
-	strcpy(z, s);
+	//strcpy(z, s);
+	// TODO #8
+
+	//Copy characters until we hit the null terminator.
+	unsigned int i;
+	for (i=0; s[i]; i++) {
+		z[i] = s[i];
+	}
+	
+	//Add null terminator to result.
+	z[i] = 0;
+
 	return z;
 }
 

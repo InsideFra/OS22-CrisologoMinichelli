@@ -1,0 +1,6 @@
+make --dry-run --always-make --keep-going --print-directory
+make: Entering directory '/home/francesco/os161/os161-base-2.0.3/kern'
+make: Leaving directory '/home/francesco/os161/os161-base-2.0.3/kern'
+ 
+Makefile:11: *** missing separator.  Stop.
+
