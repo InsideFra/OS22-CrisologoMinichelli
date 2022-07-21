@@ -66,9 +66,17 @@ runprogram(char *progname)
 	}
 
 	/* We should be a new process. */
-	KASSERT(proc_getas() == NULL);
+	// This is not needed, we should handle more than one process.
+	if (proc_getas() == NULL) {
+		// First process
+	} else {
+		// Not first process
+		KASSERT(0);
+		// TODO #3
+	}
 
 	/* Create a new address space. */
+	// Allocate just one PAGE
 	as = as_create();
 	if (as == NULL) {
 		vfs_close(v);
@@ -80,7 +88,7 @@ runprogram(char *progname)
 	as_activate();
 
 	/* Load the executable. */
-	result = load_elf(v, &entrypoint);
+	result = load_elf(v, &as->as_vbase);
 	if (result) {
 		/* p_addrspace will go away when curproc is destroyed */
 		vfs_close(v);
@@ -91,12 +99,8 @@ runprogram(char *progname)
 	vfs_close(v);
 
 	/* Define the user stack in the address space */
-	result = as_define_stack(as, &stackptr);
-	if (result) {
-		/* p_addrspace will go away when curproc is destroyed */
-		return result;
-	}
-
+    stackptr = as->as_vbase;
+	entrypoint = as->as_vbase;
 	/* Warp to user mode. */
 	enter_new_process(0 /*argc*/, NULL /*userspace addr of argv*/,
 			  NULL /*userspace addr of environment*/,
