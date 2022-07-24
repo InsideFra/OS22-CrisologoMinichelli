@@ -22,9 +22,29 @@
             "problemMatcher": []
         },
         {
-            "label": "Build and Install",
+            "label": "Build, Install, RUN with \"s\"",
             "type": "shell",
-            "command": "cd compile/${input:VersionName};bmake;bmake install",
+            "command": "cd compile/${input:VersionName};bmake;bmake install; cd ${env:HOME}/os161/root;sys161 -w kernel s",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Trace with \"s\"",
+            "type": "shell",
+            "command": "cd ${env:HOME}/os161/root;trace161 -tt -w kernel s",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Build, Install",
+            "type": "shell",
+            "command": "cd compile/${input:VersionName};bmake;bmake install;",
             "problemMatcher": [],
             "group": {
                 "kind": "build",
