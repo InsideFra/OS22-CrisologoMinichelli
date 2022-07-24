@@ -88,7 +88,7 @@ runprogram(char *progname)
 	as_activate();
 
 	/* Load the executable. */
-	result = load_elf(v, &as->as_vbase);
+	result = load_elf(v, &entrypoint);
 	if (result) {
 		/* p_addrspace will go away when curproc is destroyed */
 		vfs_close(v);
@@ -99,8 +99,9 @@ runprogram(char *progname)
 	vfs_close(v);
 
 	/* Define the user stack in the address space */
-    stackptr = as->as_vbase;
-	entrypoint = as->as_vbase;
+    stackptr = as->as_vbase_stack;
+	DEBUG(DB_VM, "\nSTACKPTR: 0x%x\nENTRYPTR: ox%x\n", 
+		stackptr, entrypoint);
 	/* Warp to user mode. */
 	enter_new_process(0 /*argc*/, NULL /*userspace addr of argv*/,
 			  NULL /*userspace addr of environment*/,
