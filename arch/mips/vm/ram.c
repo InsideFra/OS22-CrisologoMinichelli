@@ -67,10 +67,17 @@ ram_bootstrap(void)
 	 * Get first free virtual address from where start.S saved it.
 	 * Convert to physical address.
 	 */
+	unsigned int diff = firstfree % 4096;
+	if (diff) { // PAGE ALIGN
+		firstfree += (4096 - diff);
+	}
+
 	firstpaddr = firstfree - MIPS_KSEG0;
 
-	kprintf("%uk physical memory available\n",
+	kprintf("%uk physical memory available before VM\n",
 		(lastpaddr-firstpaddr)/1024);
+	DEBUG(DB_VM, "RAM starts at: 0x%x\nRAM ends at: 0x%x\n", 
+		PADDR_TO_KVADDR(firstpaddr), PADDR_TO_KVADDR(lastpaddr));
 }
 
 /*
@@ -148,6 +155,7 @@ ram_getfirstfree(void)
 	paddr_t ret;
 
 	ret = firstpaddr;
-	firstpaddr = lastpaddr = 0;
+	// TODO #10
+	//firstpaddr = lastpaddr = 0;
 	return ret;
 }
