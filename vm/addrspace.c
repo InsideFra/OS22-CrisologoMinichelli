@@ -34,6 +34,11 @@
 #include <vm.h>
 #include <proc.h>
 #include <current.h>
+#include <machine/tlb.h>
+#include <spl.h>
+#include <page.h>
+
+extern struct PG_ *main_PG;
 
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM
@@ -44,13 +49,22 @@
 struct addrspace *
 as_create(void)
 {
-	struct addrspace *as = {0};
-
-	as->as_pbase = (vaddr_t) kmalloc(PAGE_SIZE);
-	as->as_vbase = 0;
+	struct addrspace *as = kmalloc(sizeof (struct addrspace));
 	if (as == NULL) {
 		return NULL;
 	}
+	as->as_pbase_code = 0;  // will be set later
+	as->as_vbase_code = 0;  // will be set later
+	as->as_npages_code = 4; // fixed for now
+
+	as->as_pbase_data = 0;  // will be set later
+	as->as_vbase_data = 0;  // will be set later
+	as->as_npages_data = 1; // fixed for now
+
+	as->as_pbase_stack = 0; // will be set later
+	as->as_vbase_stack = 0;  // will be set later
+	as->as_npages_stack = 1; // fixed for now
+	
 	return as;
 }
 
@@ -87,6 +101,7 @@ as_destroy(struct addrspace *as)
 void
 as_activate(void)
 {
+	
 	struct addrspace *as;
 
 	as = proc_getas();
@@ -98,9 +113,16 @@ as_activate(void)
 		return;
 	}
 
-	/*
-	 * Write this.
-	 */
+	/* Disable interrupts on this CPU while frobbing the TLB. */
+	// TLB Not supported yet
+	// int i, spl;
+	// spl = splhigh();
+
+	// for (i=0; i<NUM_TLB; i++) {
+	//  	tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
+	// }
+
+	// splx(spl);
 }
 
 void
@@ -137,16 +159,74 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 	(void)readable;
 	(void)writeable;
 	(void)executable;
-	return ENOSYS;
+	if (executable) {
+		// We are now loading a CODE segment
+		as->as_vbase_code = vaddr;
+
+	} else {
+		// We are now loading a DATA segment
+		as->as_vbase_data = vaddr;
+	}
+	// TODO #9
+
+	DEBUG(DB_VM, "\nPAGING:\n");
+	return 0;
+	//return ENOSYS;
 }
 
 int
 as_prepare_load(struct addrspace *as)
 {
-	/*
-	 * Write this.
-	 */
+	as->as_pbase_code = alloc_kpages(as->as_npages_code);
+	if (as->as_pbase_code == 0) {
+		return ENOMEM;
+	}
+	DEBUG(DB_VM, "\nCODE: vAddr = 0x%x\nCODE: pAddr = 0x%x",
+		as->as_vbase_code, as->as_pbase_code);
 
+	as->as_pbase_data = alloc_kpages(as->as_npages_data);
+	if (as->as_pbase_data == 0) {
+		return ENOMEM;
+	}
+
+	DEBUG(DB_VM, "\nDATA: vAddr = 0x%x\nDATA: pAddr = 0x%x",
+		as->as_vbase_data, as->as_pbase_data);
+
+	
+	as->as_pbase_stack = alloc_kpages(as->as_npages_stack);
+	if (as->as_pbase_stack == 0) {
+		return ENOMEM;
+	}
+
+	as->as_vbase_stack = as->as_vbase_data + PAGE_SIZE*as->as_npages_data;
+
+	DEBUG(DB_VM, "\nSTACK: vAddr = 0x%x\nvSTACK: pAddr = 0x%x\n",
+		as->as_vbase_stack, as->as_pbase_stack);
+
+	int spl = splhigh();
+	uint32_t ehi, elo;
+	paddr_t pa;
+	for (unsigned int i = 0; i < as->as_npages_code; i++) {
+		ehi = (as->as_vbase_code + i*PAGE_SIZE);
+		pa = ( ((as->as_pbase_code + i*PAGE_SIZE*PAGE_SIZE)/PAGE_SIZE));
+		elo = pa | TLBLO_VALID | TLBLO_DIRTY;
+		tlb_write(ehi, elo, i) ;
+	}
+
+	ehi = as->as_vbase_data - (as->as_vbase_data%PAGE_SIZE); // PAGE ALIGN
+	pa = ((as->as_pbase_code + 4*PAGE_SIZE*PAGE_SIZE)/PAGE_SIZE); //as->as_pbase_data ;
+	elo = pa | TLBLO_VALID | TLBLO_DIRTY;
+	tlb_write(ehi, elo, 4);
+	splx(spl);
+
+	ehi = as->as_vbase_stack - (as->as_vbase_stack%PAGE_SIZE); // PAGE ALIGN
+	pa = ((as->as_pbase_code + 5*PAGE_SIZE*PAGE_SIZE)/PAGE_SIZE); //as->as_pbase_data ;
+	elo = pa | TLBLO_VALID | TLBLO_DIRTY;
+	tlb_write(ehi, elo, 5);
+	splx(spl);
+
+	//as_zero_region(as->as_pbase_data, as->as_npages_data);
+	//as_zero_region(as->as_pbase_code, as->as_npages_code);
 	(void)as;
 	return 0;
 }
@@ -171,16 +251,21 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 	return 0;
 }
 
+void
+as_zero_region(paddr_t paddr, unsigned int npages) {
+	// Avoid warnings
+	(void)paddr;
+	(void)npages;
+
+	// TLB
+	//bzero(&paddr, npages * PAGE_SIZE);
+}
+
 int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
-	//vaddr_t vbase1, vtop1, vbase2, vtop2, stackbase, stacktop;
-	//paddr_t paddr;
-	//int i;
-	//uint32_t ehi, elo;
 	struct addrspace *as;
-	//int spl;
-
+	
 	faultaddress &= PAGE_FRAME;
 
 	DEBUG(DB_VM, "dumbvm: fault: 0x%x\n", faultaddress);
@@ -213,69 +298,23 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		 */
 		return EFAULT;
 	}
-
-	/* Assert that the address space has been set up properly. */
-	// KASSERT(as->as_vbase1 != 0);
-	// KASSERT(as->as_pbase1 != 0);
-	// KASSERT(as->as_npages1 != 0);
-	// KASSERT(as->as_vbase2 != 0);
-	// KASSERT(as->as_pbase2 != 0);
-	// KASSERT(as->as_npages2 != 0);
-	// KASSERT(as->as_stackpbase != 0);
-	// KASSERT((as->as_vbase1 & PAGE_FRAME) == as->as_vbase1);
-	// KASSERT((as->as_pbase1 & PAGE_FRAME) == as->as_pbase1);
-	// KASSERT((as->as_vbase2 & PAGE_FRAME) == as->as_vbase2);
-	// KASSERT((as->as_pbase2 & PAGE_FRAME) == as->as_pbase2);
-	// KASSERT((as->as_stackpbase & PAGE_FRAME) == as->as_stackpbase);
-
-	// vbase1 = as->as_vbase1;
-	// vtop1 = vbase1 + as->as_npages1 * PAGE_SIZE;
-	// vbase2 = as->as_vbase2;
-	// vtop2 = vbase2 + as->as_npages2 * PAGE_SIZE;
-	// stackbase = USERSTACK - DUMBVM_STACKPAGES * PAGE_SIZE;
-	// stacktop = USERSTACK;
-
-	// if (faultaddress >= vbase1 && faultaddress < vtop1) {
-	// 	paddr = (faultaddress - vbase1) + as->as_pbase1;
-	// }
-	// else if (faultaddress >= vbase2 && faultaddress < vtop2) {
-	// 	paddr = (faultaddress - vbase2) + as->as_pbase2;
-	// }
-	// else if (faultaddress >= stackbase && faultaddress < stacktop) {
-	// 	paddr = (faultaddress - stackbase) + as->as_stackpbase;
-	// }
-	// else {
-	// 	return EFAULT;
-	// }
-
-	// /* make sure it's page-aligned */
-	// KASSERT((paddr & PAGE_FRAME) == paddr);
-
-	// /* Disable interrupts on this CPU while frobbing the TLB. */
-	// spl = splhigh();
-
-	// for (i=0; i<NUM_TLB; i++) {
-	// 	tlb_read(&ehi, &elo, i);
-	// 	if (elo & TLBLO_VALID) {
-	// 		continue;
-	// 	}
-	// 	ehi = faultaddress;
-	// 	elo = paddr | TLBLO_DIRTY | TLBLO_VALID;
-	// 	DEBUG(DB_VM, "dumbvm: 0x%x -> 0x%x\n", faultaddress, paddr);
-	// 	tlb_write(ehi, elo, i);
-	// 	splx(spl);
-	// 	return 0;
-	// }
-
-	// kprintf("dumbvm: Ran out of TLB entries - cannot handle page fault\n");
-	// splx(spl);
 	return EFAULT;
+	//return 0;
 }
 
 void
 vm_bootstrap(void)
 {
-	/* Do nothing. */
+	paddr_t location;
+
+    location = ram_getsize() - (PAGETABLE_ENTRY * sizeof(struct PG_));
+
+	DEBUG(DB_VM, "VM: PG vLocation: 0x%x\nVM: PG pLocation: 0x%x\nVM: Entries: %u\nVM: Sizeof(Entry): %u\n", 
+			location, PADDR_TO_KVADDR(location), PAGETABLE_ENTRY, sizeof(struct PG_));
+	DEBUG(DB_VM, "VM: %uk physical memory available after VM\n", 
+			location - ram_getfirstfree());
+
+	main_PG = (struct PG_*) PADDR_TO_KVADDR(location);
 }
 
 void
