@@ -6,6 +6,8 @@
         "version.h": "c",
         "page.h": "c",
         "vm.h": "c",
-        "mainbus.h": "c"
+        "mainbus.h": "c",
+        "tlb.h": "c",
+        "syscall.h": "c"
     }
 }

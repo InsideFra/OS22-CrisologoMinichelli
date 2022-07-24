@@ -1,4 +1,6 @@
 make all --print-data-base --no-builtin-variables --no-builtin-rules --question
+Makefile:11: *** missing separator.  Stop.
+
 # GNU Make 4.3
 # Built for x86_64-pc-linux-gnu
 # Copyright (C) 1988-2020 Free Software Foundation, Inc.
@@ -6,7 +8,7 @@ make all --print-data-base --no-builtin-variables --no-builtin-rules --question
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Tue Jul 19 13:29:44 2022
+# Make data base, printed on Sat Jul 23 17:19:46 2022
 
 # Variables
 
@@ -21,7 +23,7 @@ SSH_AGENT_LAUNCHER = gnome-keyring
 # environment
 GJS_DEBUG_OUTPUT = stderr
 # environment
-VSCODE_IPC_HOOK_EXTHOST = /run/user/1000/vscode-ipc-9e59163d-e5bb-4d0d-8d0a-c1a6b6f9bd46.sock
+VSCODE_IPC_HOOK_EXTHOST = /run/user/1000/vscode-ipc-97ea2e73-a105-4dfa-ad06-2daa7d48839e.sock
 # environment
 LC_NAME = en_US.UTF-8
 # environment
@@ -95,13 +97,13 @@ MAKEFILE_LIST := Makefile
 # environment
 VSCODE_VERBOSE_LOGGING = true
 # environment
-VSCODE_PID = 3519
+VSCODE_PID = 18590
 # environment
 XDG_SESSION_TYPE = x11
 # automatic
 ?D = $(patsubst %/,%,$(dir $?))
 # environment
-SESSION_MANAGER = local/francesco-TM1701:@/tmp/.ICE-unix/1426,unix/francesco-TM1701:/tmp/.ICE-unix/1426
+SESSION_MANAGER = local/francesco-TM1701:@/tmp/.ICE-unix/1468,unix/francesco-TM1701:/tmp/.ICE-unix/1468
 # automatic
 *F = $(notdir $*)
 # environment
@@ -141,7 +143,7 @@ LC_MONETARY = en_US.UTF-8
 # environment
 LC_TIME = en_US.UTF-8
 # environment
-INVOCATION_ID = 8f490cc4031d4623a3679b957d16b5d5
+INVOCATION_ID = 5fd32a7356654808a54c6349a5c7baf5
 # environment
 VSCODE_LOG_NATIVE = false
 # environment
@@ -171,7 +173,7 @@ GIO_LAUNCHED_DESKTOP_FILE = /usr/share/applications/code.desktop
 # makefile
 .DEFAULT_GOAL := 
 # environment
-SYSTEMD_EXEC_PID = 1450
+SYSTEMD_EXEC_PID = 1488
 # environment
 DISPLAY = :0
 # environment
@@ -181,11 +183,11 @@ GTK_MODULES = gail:atk-bridge
 # default
 MAKE_VERSION := 4.3
 # environment
-MANAGERPID = 1197
+MANAGERPID = 1239
 # environment
 LC_MEASUREMENT = en_US.UTF-8
 # environment
-GIO_LAUNCHED_DESKTOP_FILE_PID = 3519
+GIO_LAUNCHED_DESKTOP_FILE_PID = 18590
 # environment
 _ = /usr/share/code/code
 # environment
@@ -195,7 +197,7 @@ XDG_RUNTIME_DIR = /run/user/1000
 # environment
 GPG_AGENT_INFO = /run/user/1000/gnupg/S.gpg-agent:0:1
 # environment
-JOURNAL_STREAM = 8:34273
+JOURNAL_STREAM = 8:18400
 # environment
 XDG_SESSION_CLASS = user
 # environment
@@ -237,9 +239,9 @@ LC_IDENTIFICATION = en_US.UTF-8
 
 # Directories
 
-# . (device 66310, inode 2139573): 22 files, no impossibilities.
+# . (device 66310, inode 2139573): 23 files, no impossibilities.
 
-# 22 files, no impossibilities in 1 directories.
+# 23 files, no impossibilities in 1 directories.
 
 # Implicit Rules
 
@@ -274,14 +276,12 @@ all:
 
 # No general ('VPATH' variable) search path.
 
-# strcache buffers: 1 (0) / strings = 27 / storage = 183 B / avg = 6 B
-# current buf: size = 8162 B / used = 183 B / count = 27 / avg = 6 B
+# strcache buffers: 1 (0) / strings = 28 / storage = 194 B / avg = 6 B
+# current buf: size = 8162 B / used = 194 B / count = 28 / avg = 6 B
 
-# strcache performance: lookups = 31 / hit rate = 12%
+# strcache performance: lookups = 32 / hit rate = 12%
 # hash-table stats:
-# Load=27/8192=0%, Rehash=0, Collisions=0/31=0%
-# Finished Make data base on Tue Jul 19 13:29:44 2022
+# Load=28/8192=0%, Rehash=0, Collisions=0/32=0%
+# Finished Make data base on Sat Jul 23 17:19:46 2022
 
  
-Makefile:11: *** missing separator.  Stop.
-
