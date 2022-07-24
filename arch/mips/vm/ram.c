@@ -131,10 +131,16 @@ ram_stealmem(unsigned long npages)
  * initialize the VM system, after which the VM system should take
  * charge of knowing what memory exists.
  */
-paddr_t
+vaddr_t
 ram_getsize(void)
 {
 	return lastpaddr;
+}
+
+vaddr_t
+ram_getfirstaddr(void)
+{
+	return firstpaddr;
 }
 
 /*
@@ -149,13 +155,13 @@ ram_getsize(void)
  * This function should not be called once the VM system is initialized,
  * so it is not synchronized.
  */
-paddr_t
+vaddr_t
 ram_getfirstfree(void)
 {
 	paddr_t ret;
 
 	ret = firstpaddr;
-	// TODO #10
-	//firstpaddr = lastpaddr = 0;
+
+	firstpaddr = lastpaddr = 0;
 	return ret;
 }

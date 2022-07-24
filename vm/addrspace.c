@@ -203,24 +203,27 @@ as_prepare_load(struct addrspace *as)
 	DEBUG(DB_VM, "\nSTACK: vAddr = 0x%x\nvSTACK: pAddr = 0x%x\n",
 		as->as_vbase_stack, as->as_pbase_stack);
 
+	// EVERYTHING NEXT IS DEBUG AND SHOULD BE DELETED IN PRODUCTION
+	// BUT NOW IT STAYS HERE TO RUN SHELL PROGRAM
+
 	int spl = splhigh();
 	uint32_t ehi, elo;
 	paddr_t pa;
 	for (unsigned int i = 0; i < as->as_npages_code; i++) {
 		ehi = (as->as_vbase_code + i*PAGE_SIZE);
-		pa = ( ((as->as_pbase_code + i*PAGE_SIZE*PAGE_SIZE)/PAGE_SIZE));
+		pa = ((as->as_pbase_code - MIPS_KSEG0)) + i*PAGE_SIZE;
 		elo = pa | TLBLO_VALID | TLBLO_DIRTY;
 		tlb_write(ehi, elo, i) ;
 	}
 
 	ehi = as->as_vbase_data - (as->as_vbase_data%PAGE_SIZE); // PAGE ALIGN
-	pa = ((as->as_pbase_code + 4*PAGE_SIZE*PAGE_SIZE)/PAGE_SIZE); //as->as_pbase_data ;
+	pa = ((as->as_pbase_data - MIPS_KSEG0));
 	elo = pa | TLBLO_VALID | TLBLO_DIRTY;
 	tlb_write(ehi, elo, 4);
 	splx(spl);
 
 	ehi = as->as_vbase_stack - (as->as_vbase_stack%PAGE_SIZE); // PAGE ALIGN
-	pa = ((as->as_pbase_code + 5*PAGE_SIZE*PAGE_SIZE)/PAGE_SIZE); //as->as_pbase_data ;
+	pa = ((as->as_pbase_stack - MIPS_KSEG0));
 	elo = pa | TLBLO_VALID | TLBLO_DIRTY;
 	tlb_write(ehi, elo, 5);
 	splx(spl);
@@ -305,14 +308,14 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 void
 vm_bootstrap(void)
 {
-	paddr_t location;
+	vaddr_t location;
 
     location = ram_getsize() - (PAGETABLE_ENTRY * sizeof(struct PG_));
 
 	DEBUG(DB_VM, "VM: PG vLocation: 0x%x\nVM: PG pLocation: 0x%x\nVM: Entries: %u\nVM: Sizeof(Entry): %u\n", 
 			location, PADDR_TO_KVADDR(location), PAGETABLE_ENTRY, sizeof(struct PG_));
 	DEBUG(DB_VM, "VM: %uk physical memory available after VM\n", 
-			location - ram_getfirstfree());
+			location - ram_getfirstaddr());
 
 	main_PG = (struct PG_*) PADDR_TO_KVADDR(location);
 }

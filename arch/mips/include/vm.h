@@ -109,8 +109,9 @@
 
 void ram_bootstrap(void);
 paddr_t ram_stealmem(unsigned long npages);
-paddr_t ram_getsize(void);
-paddr_t ram_getfirstfree(void);
+vaddr_t ram_getsize(void);
+vaddr_t ram_getfirstaddr(void);
+vaddr_t ram_getfirstfree(void);
 
 /*
  * TLB shootdown bits.
