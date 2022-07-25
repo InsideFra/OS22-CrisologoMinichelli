@@ -76,6 +76,7 @@ ram_bootstrap(void)
 
 	kprintf("%uk physical memory available before VM\n",
 		(lastpaddr-firstpaddr)/1024);
+		
 	DEBUG(DB_VM, "RAM starts at: 0x%x\nRAM ends at: 0x%x\n", 
 		PADDR_TO_KVADDR(firstpaddr), PADDR_TO_KVADDR(lastpaddr));
 }

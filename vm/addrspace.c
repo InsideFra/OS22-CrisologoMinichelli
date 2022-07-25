@@ -34,7 +34,6 @@
 #include <vm.h>
 #include <proc.h>
 #include <current.h>
-#include <machine/tlb.h>
 #include <spl.h>
 #include <page.h>
 
@@ -55,11 +54,11 @@ as_create(void)
 	}
 	as->as_pbase_code = 0;  // will be set later
 	as->as_vbase_code = 0;  // will be set later
-	as->as_npages_code = 4; // fixed for now
+	as->as_npages_code = 0; // will be set later
 
 	as->as_pbase_data = 0;  // will be set later
 	as->as_vbase_data = 0;  // will be set later
-	as->as_npages_data = 1; // fixed for now
+	as->as_npages_data = 0; // will be set later
 
 	as->as_pbase_stack = 0; // will be set later
 	as->as_vbase_stack = 0;  // will be set later
@@ -101,7 +100,6 @@ as_destroy(struct addrspace *as)
 void
 as_activate(void)
 {
-	
 	struct addrspace *as;
 
 	as = proc_getas();
@@ -112,17 +110,6 @@ as_activate(void)
 		 */
 		return;
 	}
-
-	/* Disable interrupts on this CPU while frobbing the TLB. */
-	// TLB Not supported yet
-	// int i, spl;
-	// spl = splhigh();
-
-	// for (i=0; i<NUM_TLB; i++) {
-	//  	tlb_write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
-	// }
-
-	// splx(spl);
 }
 
 void
@@ -162,29 +149,40 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 	if (executable) {
 		// We are now loading a CODE segment
 		as->as_vbase_code = vaddr;
+		as->as_npages_code = memsize/4096 + 1;
+		DEBUG(DB_VM, "\nPAGING CODE: vAddr: 0x%x size: %u pages: %u\n", 
+			as->as_vbase_code, memsize, as->as_npages_code);
+		return 0;
 
 	} else {
 		// We are now loading a DATA segment
 		as->as_vbase_data = vaddr;
+		as->as_npages_data = memsize/4096 + 1;
+		DEBUG(DB_VM, "\nPAGING DATA: vAddr: 0x%x size: %u pages: %u\n", 
+			as->as_vbase_data, memsize, as->as_npages_data);
+		return 0;
 	}
 	// TODO #9
 
-	DEBUG(DB_VM, "\nPAGING:\n");
-	return 0;
-	//return ENOSYS;
+	DEBUG(DB_VM, "Unknown PAGING");
+	return ENOSYS;
 }
 
 int
 as_prepare_load(struct addrspace *as)
 {
-	as->as_pbase_code = alloc_kpages(as->as_npages_code);
+	vaddr_t vbase_topass;
+
+	vbase_topass = as->as_vbase_code;
+	as->as_pbase_code = alloc_kpages(as->as_npages_code, vbase_topass);
 	if (as->as_pbase_code == 0) {
 		return ENOMEM;
 	}
 	DEBUG(DB_VM, "\nCODE: vAddr = 0x%x\nCODE: pAddr = 0x%x",
 		as->as_vbase_code, as->as_pbase_code);
 
-	as->as_pbase_data = alloc_kpages(as->as_npages_data);
+	vbase_topass = as->as_vbase_data - (as->as_vbase_data%PAGE_SIZE); // PAGE ALIGN
+	as->as_pbase_data = alloc_kpages(as->as_npages_data, vbase_topass);
 	if (as->as_pbase_data == 0) {
 		return ENOMEM;
 	}
@@ -192,45 +190,18 @@ as_prepare_load(struct addrspace *as)
 	DEBUG(DB_VM, "\nDATA: vAddr = 0x%x\nDATA: pAddr = 0x%x",
 		as->as_vbase_data, as->as_pbase_data);
 
-	
-	as->as_pbase_stack = alloc_kpages(as->as_npages_stack);
+	as->as_vbase_stack = as->as_vbase_data + PAGE_SIZE*as->as_npages_data;
+	vbase_topass = as->as_vbase_stack - (as->as_vbase_stack%PAGE_SIZE); // PAGE ALIGN
+	as->as_pbase_stack = alloc_kpages(as->as_npages_stack, vbase_topass);
 	if (as->as_pbase_stack == 0) {
 		return ENOMEM;
 	}
 
-	as->as_vbase_stack = as->as_vbase_data + PAGE_SIZE*as->as_npages_data;
-
 	DEBUG(DB_VM, "\nSTACK: vAddr = 0x%x\nvSTACK: pAddr = 0x%x\n",
 		as->as_vbase_stack, as->as_pbase_stack);
 
-	// EVERYTHING NEXT IS DEBUG AND SHOULD BE DELETED IN PRODUCTION
-	// BUT NOW IT STAYS HERE TO RUN SHELL PROGRAM
 
-	int spl = splhigh();
-	uint32_t ehi, elo;
-	paddr_t pa;
-	for (unsigned int i = 0; i < as->as_npages_code; i++) {
-		ehi = (as->as_vbase_code + i*PAGE_SIZE);
-		pa = ((as->as_pbase_code - MIPS_KSEG0)) + i*PAGE_SIZE;
-		elo = pa | TLBLO_VALID | TLBLO_DIRTY;
-		tlb_write(ehi, elo, i) ;
-	}
-
-	ehi = as->as_vbase_data - (as->as_vbase_data%PAGE_SIZE); // PAGE ALIGN
-	pa = ((as->as_pbase_data - MIPS_KSEG0));
-	elo = pa | TLBLO_VALID | TLBLO_DIRTY;
-	tlb_write(ehi, elo, 4);
-	splx(spl);
-
-	ehi = as->as_vbase_stack - (as->as_vbase_stack%PAGE_SIZE); // PAGE ALIGN
-	pa = ((as->as_pbase_stack - MIPS_KSEG0));
-	elo = pa | TLBLO_VALID | TLBLO_DIRTY;
-	tlb_write(ehi, elo, 5);
-	splx(spl);
-
-	//as_zero_region(as->as_pbase_data, as->as_npages_data);
-	//as_zero_region(as->as_pbase_code, as->as_npages_code);
-	(void)as;
+	//as_zero_region
 	return 0;
 }
 
@@ -271,17 +242,42 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	
 	faultaddress &= PAGE_FRAME;
 
-	DEBUG(DB_VM, "dumbvm: fault: 0x%x\n", faultaddress);
+	//DEBUG(DB_VM, "dumbvm: fault: 0x%x\n", faultaddress);
 
+	unsigned int pn = 0;
 	switch (faulttype) {
 	    case VM_FAULT_READONLY:
 		/* We always create pages read-write, so we can't get this */
-		panic("dumbvm: got VM_FAULT_READONLY\n");
+			panic("dumbvm: got VM_FAULT_READONLY\n");
+			break;
 	    case VM_FAULT_READ:
+			pn = faultaddress / PAGE_SIZE;
+    		pn -= 1024;
+			if (pn > PAGETABLE_ENTRY) {
+				panic("PAGING: OUT OF MEMORY ACCESS");
+			}
+			if (main_PG[pn].Valid == 1) {
+				return 0;
+			} else {
+				panic("TLB Miss and No PageTable Valid Entry found.");
+				return EINVAL;
+			}
+			break;
 	    case VM_FAULT_WRITE:
-		break;
+			pn = faultaddress / PAGE_SIZE;
+    		pn -= 1024;
+			if (pn > PAGETABLE_ENTRY) {
+				panic("PAGING: OUT OF MEMORY ACCESS");
+			}
+			if (main_PG[pn].Valid == 1) {
+				return 0;
+			} else {
+				panic("TLB Miss and No PageTable Valid Entry found.");
+				return EINVAL;
+			}
+			break;
 	    default:
-		return EINVAL;
+			return EINVAL;
 	}
 
 	if (curproc == NULL) {
@@ -302,7 +298,6 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		return EFAULT;
 	}
 	return EFAULT;
-	//return 0;
 }
 
 void

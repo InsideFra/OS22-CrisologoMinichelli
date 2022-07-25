@@ -230,7 +230,7 @@ allocpagerefpage(struct kheap_root *root)
 	 * Note that this means things can change behind our back...
 	 */
 	spinlock_release(&kmalloc_spinlock);
-	va = alloc_kpages(1);
+	va = alloc_kpages(1, 0);
 	spinlock_acquire(&kmalloc_spinlock);
 	if (va == 0) {
 		kprintf("kmalloc: Couldn't get a pageref page\n");
@@ -965,7 +965,7 @@ subpage_kmalloc(size_t sz
 	 */
 
 	spinlock_release(&kmalloc_spinlock);
-	prpage = alloc_kpages(1);
+	prpage = alloc_kpages(1, 0);
 	if (prpage==0) {
 		/* Out of memory. */
 		kprintf("kmalloc: Subpage allocator couldn't get a page\n");
@@ -1190,7 +1190,7 @@ kmalloc(size_t sz)
 
 		/* Round up to a whole number of pages. */
 		npages = (sz + PAGE_SIZE - 1)/PAGE_SIZE;
-		address = alloc_kpages(npages);
+		address = alloc_kpages(npages, 0);
 		if (address==0) {
 			return NULL;
 		}

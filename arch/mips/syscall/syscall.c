@@ -109,6 +109,22 @@ syscall(struct trapframe *tf)
 				 (userptr_t)tf->tf_a1);
 		break;
 
+		case SYS_write:
+			// retval = sys_write((int) tf->tf_a0, (const void *) tf->tf_a1,
+			// 		(size_t) tf->tf_a2, (size_t) tf->tf_a2);
+			// if (retval < 0)
+			// 	err = -retval;
+			// else
+			// 	err = 0;
+			DEBUG(DB_VM,"Syscall: write(%d,%x,%d)\n",(unsigned int) tf->tf_a0,(int) tf->tf_a1,(unsigned int) tf->tf_a2);
+			err = 0;
+		break;
+
+		case SYS_read:
+			DEBUG(DB_VM,"Syscall: read(%d,%x,%d)\n",(unsigned int) tf->tf_a0,(int) tf->tf_a1,(unsigned int) tf->tf_a2);
+			err = 0;
+		break;
+
 	    /* Add stuff here */
 
 	    default:

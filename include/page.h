@@ -10,7 +10,7 @@
 #define PTBR_ 1
 
 // The size of the allocaed space to store page table
-#define PAGETABLE_SPACE 8192
+#define PAGETABLE_SPACE 512
 
 #define PAGETABLE_ENTRY PAGETABLE_SPACE/PTLR_
 
