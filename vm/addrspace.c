@@ -252,7 +252,6 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 			break;
 	    case VM_FAULT_READ:
 			pn = faultaddress / PAGE_SIZE;
-    		pn -= 1024;
 			if (pn > PAGETABLE_ENTRY) {
 				panic("PAGING: OUT OF MEMORY ACCESS");
 			}
@@ -265,7 +264,6 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 			break;
 	    case VM_FAULT_WRITE:
 			pn = faultaddress / PAGE_SIZE;
-    		pn -= 1024;
 			if (pn > PAGETABLE_ENTRY) {
 				panic("PAGING: OUT OF MEMORY ACCESS");
 			}
@@ -311,8 +309,13 @@ vm_bootstrap(void)
 			location, PADDR_TO_KVADDR(location), PAGETABLE_ENTRY, sizeof(struct PG_));
 	DEBUG(DB_VM, "VM: %uk physical memory available after VM\n", 
 			location - ram_getfirstaddr());
+	DEBUG(DB_VM, "VM: %u free pages\n", 
+		(location - ram_getfirstaddr())/PAGE_SIZE);
 
-	main_PG = (struct PG_*) PADDR_TO_KVADDR(location);
+
+	main_PG = (struct PG_*)PADDR_TO_KVADDR(location);
+
+	DROP_PG(512);
 }
 
 void

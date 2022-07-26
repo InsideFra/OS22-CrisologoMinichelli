@@ -51,6 +51,8 @@ void mips_trap(struct trapframe *tf);
 
 extern struct PG_ *main_PG;
 
+static uint32_t tlb_index = 0;
+
 
 /* Names for trap codes */
 #define NTRAPCODES 13
@@ -245,20 +247,15 @@ mips_trap(struct trapframe *tf)
 	case EX_TLBL:
 		if (vm_fault(VM_FAULT_READ, tf->tf_vaddr)==0) {
 			pn = tf->tf_vaddr / PAGE_SIZE;
-			pn -= 1024;
-			int dst = main_PG[pn].frame_number;
 			// loading TLB as there was a tlb miss on read
-
 			int spl = splhigh();
 			uint32_t ehi, elo;
 			paddr_t pa;
 			ehi = tf->tf_vaddr - ((tf->tf_vaddr)%PAGE_SIZE); // PAGE ALIGN
-			pa = (dst);
+			pa = main_PG[pn].frame_number << 12;
 			elo = pa | TLBLO_VALID | TLBLO_DIRTY;
-			tlb_random(ehi, elo);
+			tlb_write(ehi, elo, tlb_index++);
 			splx(spl);
-
-			tf->tf_epc -= 4;
 			goto done;
 		}
 		break;
@@ -267,12 +264,27 @@ mips_trap(struct trapframe *tf)
 			// tf_a1 is the src physical
 			// tf_vaddr is the dst virtual
 			pn = tf->tf_vaddr / PAGE_SIZE;
-    		pn -= 1024;
-			int *dst = (int *)PADDR_TO_KVADDR(main_PG[pn].frame_number << 12);
+			uint32_t *dst = NULL;
+			dst = (uint32_t*)PADDR_TO_KVADDR(main_PG[pn].frame_number << 12);
+			uint32_t *src = NULL;
+			src = (uint32_t*)(tf->tf_a1 + tf->tf_v1*sizeof(uint32_t));
 			offset_ = tf->tf_vaddr%PAGE_SIZE;
-			dst += offset_/4;
-			*dst = tf->tf_a1;
-			tf->tf_epc += 4;
+			dst += offset_/sizeof(uint32_t);
+			*dst = *src;
+			tf->tf_epc += sizeof(uint32_t);
+
+			// loading TLB as there was a tlb miss
+
+			int spl = splhigh();
+			uint32_t ehi, elo;
+			paddr_t pa;
+			ehi = tf->tf_vaddr - ((tf->tf_vaddr)%PAGE_SIZE); // PAGE ALIGN
+			pa = main_PG[pn].frame_number << 12;
+			elo = pa | TLBLO_VALID | TLBLO_DIRTY;
+			if ((tf->tf_vaddr >> 12) != 0x400) 
+				tlb_write(ehi, elo, tlb_index++);
+			splx(spl);
+
 			goto done;
 		}
 		break;

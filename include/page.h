@@ -10,11 +10,14 @@
 #define PTBR_ 1
 
 // The size of the allocaed space to store page table
-#define PAGETABLE_SPACE 512
+#define PAGETABLE_SPACE 16384
 
 #define PAGETABLE_ENTRY PAGETABLE_SPACE/PTLR_
 
+#define mainPG(i) ((struct PG_)*(main_PG+i*(sizeof struct PG_)))
+
 struct PG_ {
-    uint8_t Valid;
-    int frame_number;
+    _Bool Valid;
+    uint32_t frame_number;
 };
+

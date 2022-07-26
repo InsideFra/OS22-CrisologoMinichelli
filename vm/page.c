@@ -18,7 +18,7 @@ static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
 // To run a program of size N pages, need to find N free frames and load program
 // SET UP A PAGE TABLE to translate logical to physical addresses
 
-struct PG_ *main_PG = 0;
+struct PG_ (*main_PG) = NULL;
 
 /* Allocate/free some kernel-space virtual pages */
 vaddr_t
@@ -38,7 +38,7 @@ alloc_kpages(unsigned npages, vaddr_t as_vbase)
     } else {
         // The VM has been initialized
         if (as_vbase == 0) {
-            DEBUG(DB_VM, "\nPE_NOV\n");
+            //DEBUG(DB_VM, "\nPE_NOV\n");
             return alloc_pages(npages, 0);
         } else {
             return alloc_pages(npages, as_vbase);
@@ -63,60 +63,68 @@ alloc_pages(unsigned npages, vaddr_t as_vbase)
 
     paddr_t addr = 0, return_addr = 0;
 
-    //unsigned int first_valid_page_number = 0;
-    //_Bool valid_pages_founded = 0;
-    //unsigned buffer_npages = npages;
-
-    /*for(unsigned int i = 0; i < PAGETABLE_ENTRY; i++) {
-        if (buffer_npages != 0) {
-            if (main_PG[i].Valid == 0) {
-                first_valid_page_number = (buffer_npages == npages ? i : first_valid_page_number);
-                buffer_npages--;
-                if (buffer_npages == 0) {
-                    valid_pages_founded = 1;
-                    break;
-                }   
-            } else {
-                if (buffer_npages != npages) {
-                    first_valid_page_number = 0;
-                    valid_pages_founded = 0;
-                    buffer_npages = npages;
-                }
-            }
-        }
-    }
-
-    if (valid_pages_founded == 0) {
-        // TODO #6
-    } else {
-        // TODO #7
-        for (unsigned int i = 0; i < npages; i++) {
-            main_PG[first_valid_page_number+i].Valid = 1;
-        }
-        
-    }*/
-
-
     //int spl = splhigh();
 	//uint32_t ehi, elo;
     
     if (as_vbase == 0) {
-        spinlock_acquire(&stealmem_lock);
-        addr = ram_stealmem(1);
-        spinlock_release(&stealmem_lock);
+        // No specific virtual address requested
+        // Return a virtual address, while keeping trace of the memory
+        for (unsigned int i = 0; i < npages; i++) {
+            
+            // Find any virtual address available in the PG
+            unsigned int first_valid_page_number = 0;
+            _Bool valid_pages_founded = 0;
+            unsigned buffer_npages = npages;
 
-        if (addr==0) { 
-            return 0; 
-        }
-        if (return_addr == 0) { 
-            return_addr = addr; 
+            for(unsigned int i = 0; i < PAGETABLE_ENTRY; i++) {
+                if (buffer_npages != 0) {
+                    if (main_PG[i].Valid == 0) {
+                        first_valid_page_number = (buffer_npages == npages ? i : first_valid_page_number);
+                        buffer_npages--;
+                        if (buffer_npages == 0) {
+                            valid_pages_founded = 1;
+                            break;
+                        }   
+                    } else {
+                        if (buffer_npages != npages) {
+                            first_valid_page_number = 0;
+                            valid_pages_founded = 0;
+                            buffer_npages = npages;
+                        }
+                    }
+                }
+            }
+
+            if (valid_pages_founded == 0) {
+                // TODO #6
+            } else {
+                // TODO #7
+                for (unsigned int i = 0; i < npages; i++) {
+                    main_PG[first_valid_page_number+i].Valid = 1;
+                }
+                
+            }
+
+            spinlock_acquire(&stealmem_lock);
+            addr = ram_stealmem(1);
+            spinlock_release(&stealmem_lock);
+
+            if (addr >= (paddr_t)main_PG - MIPS_KSEG0) {
+                panic("You're trying to write over the PG");
+            }
+
+            if (addr==0) { 
+                return 0; 
+            }
+            if (return_addr == 0) { 
+                return_addr = addr; 
+            }
         }
         return PADDR_TO_KVADDR(return_addr);
     }
 
     // FIND THE PAGE NUMBER from virtual address
     unsigned int pn = as_vbase / PAGE_SIZE;
-    pn -= 1024;
 
     if (pn > PAGETABLE_ENTRY) {
         panic("PAGING: OUT OF MEMORY ACCESS");
@@ -148,17 +156,17 @@ alloc_pages(unsigned npages, vaddr_t as_vbase)
         }
     }
     
-    DROP_PG();
+    DROP_PG(128);
 
 	//splx(spl);
     return PADDR_TO_KVADDR(return_addr);
 }
 
-void DROP_PG(void) {
+void DROP_PG(unsigned int interval) {
     DEBUG(DB_VM, "\n");
-    for(unsigned int i = 0; i < PAGETABLE_ENTRY; i++) {
+    for(unsigned int i = 0; i < PAGETABLE_ENTRY; i += interval) {
         DEBUG(DB_VM, "[0x%x]\tFN: %x\tpAddr: 0x%x\t-%s-\n", 
-            (i+1024)*PAGE_SIZE, 
+            (i)*PAGE_SIZE, 
             main_PG[i].frame_number, 
             PADDR_TO_KVADDR(main_PG[i].frame_number << 12), 
             main_PG[i].Valid == 1 ? "V" : "N");

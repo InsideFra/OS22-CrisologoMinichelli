@@ -60,7 +60,7 @@ vaddr_t alloc_pages(unsigned npages, vaddr_t as_vbase);
 void free_pages(vaddr_t addr);
 
 vaddr_t getppages(unsigned int npages);
-void DROP_PG(void);
+void DROP_PG(unsigned int interval);
 
 /* TLB shootdown handling called from interprocessor_interrupt */
 void vm_tlbshootdown(const struct tlbshootdown *);
