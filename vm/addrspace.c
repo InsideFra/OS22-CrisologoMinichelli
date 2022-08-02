@@ -36,8 +36,9 @@
 #include <current.h>
 #include <spl.h>
 #include <page.h>
+#include <machine/tlb.h>
 
-extern struct PG_ *main_PG;
+extern struct RAM_PG_ *main_PG;
 
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM
@@ -49,6 +50,9 @@ struct addrspace *
 as_create(void)
 {
 	struct addrspace *as = kmalloc(sizeof (struct addrspace));
+	struct process_PG *p_PG = kmalloc(Process_PG_ENTRY*(sizeof(struct process_PG)));
+	struct PG_Info *p_PG_Info = kmalloc(sizeof (struct PG_Info));  
+	DROP_PG(1);
 	if (as == NULL) {
 		return NULL;
 	}
@@ -63,6 +67,9 @@ as_create(void)
 	as->as_pbase_stack = 0; // will be set later
 	as->as_vbase_stack = 0;  // will be set later
 	as->as_npages_stack = 1; // fixed for now
+
+	as->processPageTable = p_PG;
+	as->processPageTable_INFO = p_PG_Info;
 	
 	return as;
 }
@@ -145,15 +152,53 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 	(void)memsize;
 	(void)readable;
 	(void)writeable;
-	(void)executable;
 	if (executable) {
 		// We are now loading a CODE segment
 		as->as_vbase_code = vaddr;
 		as->as_npages_code = memsize/4096 + 1;
 		DEBUG(DB_VM, "\nPAGING CODE: vAddr: 0x%x size: %u pages: %u\n", 
 			as->as_vbase_code, memsize, as->as_npages_code);
-		return 0;
 
+		as->processPageTable_INFO->code_vaddr = as->as_vbase_code;
+		as->processPageTable_INFO->code_entries = MAX_CODE_SEGMENT_PAGES;
+
+		
+		for (unsigned int i = 0; i < MAX_CODE_SEGMENT_PAGES; i++) {
+			// Virtualizzation
+			paddr_t addr = alloc_kpages(1, as->as_vbase_code+i*PAGE_SIZE);
+
+			if (addr == 0) {
+				panic("Error during memory allocation. See alloc_kpages called by as_define_region.\n");
+			}
+
+			as->as_pbase_code = addr;
+
+			struct process_PG pPage = {0};
+
+			pPage.Protection = (1 << 2) | (0 << 1) | (1 << 0); // RWE
+			pPage.CachingDisabled = 1;
+			pPage.frame_number = addr/PAGE_SIZE;
+			pPage.Modified = 0;
+			pPage.pagenumber = as->as_vbase_code/PAGE_SIZE;
+			pPage.Referenced = 0;
+			pPage.Valid = 1;
+
+			if (update_process_PG(as->processPageTable, &pPage)) {
+				panic("Generic VM Error\n");
+			}
+
+			// Update TLB??
+			addTLB(as->as_vbase_code+i*PAGE_SIZE, addr);
+		}
+
+		if (as->as_npages_code > MAX_CODE_SEGMENT_PAGES) {
+			DEBUG(DB_VM, "Demand Paging Activate");
+		}
+	    else {
+			DEBUG(DB_VM, "Demand Paging not needed in this case");
+		}
+		
+		return 0;
 	} else {
 		// We are now loading a DATA segment
 		as->as_vbase_data = vaddr;
@@ -171,15 +216,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 int
 as_prepare_load(struct addrspace *as)
 {
-	vaddr_t vbase_topass;
-
-	vbase_topass = as->as_vbase_code;
-	as->as_pbase_code = alloc_kpages(as->as_npages_code, vbase_topass);
-	if (as->as_pbase_code == 0) {
-		return ENOMEM;
-	}
-	DEBUG(DB_VM, "\nCODE: vAddr = 0x%x\nCODE: pAddr = 0x%x",
-		as->as_vbase_code, as->as_pbase_code);
+	vaddr_t vbase_topass = 0;
 
 	vbase_topass = as->as_vbase_data - (as->as_vbase_data%PAGE_SIZE); // PAGE ALIGN
 	as->as_pbase_data = alloc_kpages(as->as_npages_data, vbase_topass);
@@ -244,35 +281,29 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
 	//DEBUG(DB_VM, "dumbvm: fault: 0x%x\n", faultaddress);
 
-	unsigned int pn = 0;
+	//unsigned int pn = 0;
+	int ret = 0;
 	switch (faulttype) {
 	    case VM_FAULT_READONLY:
 		/* We always create pages read-write, so we can't get this */
 			panic("dumbvm: got VM_FAULT_READONLY\n");
 			break;
 	    case VM_FAULT_READ:
-			pn = faultaddress / PAGE_SIZE;
-			if (pn > PAGETABLE_ENTRY) {
-				panic("PAGING: OUT OF MEMORY ACCESS");
-			}
-			if (main_PG[pn].Valid == 1) {
-				return 0;
+			ret = pageSearch(faultaddress);
+			if (ret > 0) {
+				panic("Function not developed yet");
 			} else {
 				panic("TLB Miss and No PageTable Valid Entry found.");
 				return EINVAL;
 			}
 			break;
 	    case VM_FAULT_WRITE:
-			pn = faultaddress / PAGE_SIZE;
-			if (pn > PAGETABLE_ENTRY) {
-				panic("PAGING: OUT OF MEMORY ACCESS");
+			ret = pageSearch(faultaddress);
+			if (ret < 0) {
+				panic("Something went wrong with address 0x%x", 
+					faultaddress);
 			}
-			if (main_PG[pn].Valid == 1) {
-				return 0;
-			} else {
-				panic("TLB Miss and No PageTable Valid Entry found.");
-				return EINVAL;
-			}
+			return 0;
 			break;
 	    default:
 			return EINVAL;
@@ -303,19 +334,49 @@ vm_bootstrap(void)
 {
 	vaddr_t location;
 
-    location = ram_getsize() - (PAGETABLE_ENTRY * sizeof(struct PG_));
+	PAGETABLE_ENTRY = ram_getsize()/PAGE_SIZE;
+
+    location = ram_getsize() - (PAGETABLE_ENTRY * PTLR);
+
+	// Location page align
+	if (location%PAGE_SIZE != 0) {
+		location -= location%PAGE_SIZE;
+	}
 
 	DEBUG(DB_VM, "VM: PG vLocation: 0x%x\nVM: PG pLocation: 0x%x\nVM: Entries: %u\nVM: Sizeof(Entry): %u\n", 
-			location, PADDR_TO_KVADDR(location), PAGETABLE_ENTRY, sizeof(struct PG_));
-	DEBUG(DB_VM, "VM: %uk physical memory available after VM\n", 
+			location, PADDR_TO_KVADDR(location), PAGETABLE_ENTRY, sizeof(struct RAM_PG_));
+	
+	DEBUG(DB_VM, "VM: %uk physical memory available after VM boot\n", 
 			location - ram_getfirstaddr());
+	
 	DEBUG(DB_VM, "VM: %u free pages\n", 
 		(location - ram_getfirstaddr())/PAGE_SIZE);
 
+	DEBUG(DB_VM, "VM: %u pages used by the kernel\n", 
+		(ram_getfirstaddr())/PAGE_SIZE);
 
-	main_PG = (struct PG_*)PADDR_TO_KVADDR(location);
+	DEBUG(DB_VM, "VM: %u pages used by the VM\n", 
+		(ram_getsize() - location)/PAGE_SIZE);
+	
+	DEBUG(DB_VM, "\n");
 
-	DROP_PG(512);
+	main_PG = (struct RAM_PG_*)PADDR_TO_KVADDR(location);
+
+	// Maybe virtualize kernel space is useless?
+	for(unsigned int i = 0; i < ram_getfirstaddr()/PAGE_SIZE; i++) {
+		main_PG[i].page_number = 0;
+		main_PG[i].pid = 0;
+		main_PG[i].Valid = 1;
+	}
+
+	// VM Memory
+	for(unsigned int i = 0; i < (ram_getsize()-location)/PAGE_SIZE; i++) {
+		main_PG[127-i].page_number = 0;
+		main_PG[127-i].pid = 1;
+		main_PG[127-i].Valid = 1;
+	}
+
+	DROP_PG(1);
 }
 
 void

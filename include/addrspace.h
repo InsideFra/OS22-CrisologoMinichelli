@@ -36,6 +36,7 @@
 
 
 #include <vm.h>
+#include <page.h>
 
 struct vnode;
 
@@ -69,6 +70,8 @@ struct addrspace {
         vaddr_t as_vbase_stack;
         size_t  as_npages_stack;
         
+        struct process_PG* processPageTable;
+        struct PG_Info* processPageTable_INFO;
 #endif
 };
 

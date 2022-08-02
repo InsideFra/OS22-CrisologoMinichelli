@@ -38,6 +38,8 @@ vaddr_t firstfree;   /* first free virtual address; set by start.S */
 static paddr_t firstpaddr;  /* address of first free physical page */
 static paddr_t lastpaddr;   /* one past end of last free physical page */
 
+extern struct RAM_PG_ *main_PG;
+
 /*
  * Called very early in system boot to figure out how much physical
  * RAM is available.
@@ -102,6 +104,11 @@ ram_bootstrap(void)
 paddr_t
 ram_stealmem(unsigned long npages)
 {
+
+	if (main_PG != NULL) {
+		panic("The VM has been initialized and you should never call this function");
+	}
+
 	size_t size;
 	paddr_t paddr;
 
@@ -142,27 +149,4 @@ vaddr_t
 ram_getfirstaddr(void)
 {
 	return firstpaddr;
-}
-
-/*
- * This function is intended to be called by the VM system when it
- * initializes in order to find out what memory it has available to
- * manage.
- *
- * It can only be called once, and once called ram_stealmem() will
- * no longer work, as that would invalidate the result it returned
- * and lead to multiple things using the same memory.
- *
- * This function should not be called once the VM system is initialized,
- * so it is not synchronized.
- */
-vaddr_t
-ram_getfirstfree(void)
-{
-	paddr_t ret;
-
-	ret = firstpaddr;
-
-	firstpaddr = lastpaddr = 0;
-	return ret;
 }

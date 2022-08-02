@@ -39,10 +39,16 @@
 
 #include <machine/vm.h>
 
+#include <page.h>
+
 /* Fault-type arguments to vm_fault() */
 #define VM_FAULT_READ        0    /* A read was attempted */
 #define VM_FAULT_WRITE       1    /* A write was attempted */
 #define VM_FAULT_READONLY    2    /* A write to a readonly page was attempted*/
+
+enum pageERROR {
+    noEntryFound = -1
+};
 
 
 /* Initialization function */
@@ -61,6 +67,9 @@ void free_pages(vaddr_t addr);
 
 vaddr_t getppages(unsigned int npages);
 void DROP_PG(unsigned int interval);
+int update_process_PG(struct process_PG* pPage, struct process_PG* data);
+int pageSearch(vaddr_t addr);
+int addTLB(vaddr_t vaddr, paddr_t paddr);
 
 /* TLB shootdown handling called from interprocessor_interrupt */
 void vm_tlbshootdown(const struct tlbshootdown *);

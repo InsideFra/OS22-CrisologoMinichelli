@@ -288,9 +288,20 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 			return ENOEXEC;
 		}
 
+		if ((ph.p_flags & PF_X) == 1) { // code segment, executable
+			if (ph.p_filesz/(uint32_t)PAGE_SIZE > MAX_CODE_SEGMENT_PAGES) { // Demand paging
+				ph.p_memsz = MAX_CODE_SEGMENT_PAGES*PAGE_SIZE;
+			} else { // Not need for demand paging
+				
+			}
+		} else {
+			
+		}
+
 		result = load_segment(as, v, ph.p_offset, ph.p_vaddr,
-				      ph.p_memsz, ph.p_filesz,
-				      ph.p_flags & PF_X);
+			ph.p_memsz, ph.p_filesz,
+			ph.p_flags & PF_X);
+
 		if (result) {
 			return result;
 		}
