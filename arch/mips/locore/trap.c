@@ -237,7 +237,8 @@ mips_trap(struct trapframe *tf)
 	 * Panic on the bus error exceptions.
 	 */
 	unsigned int pn = 0;
-	unsigned int offset_ = 0;
+	//unsigned int offset_ = 0;
+	int ret = 0;
 	switch (code) {
 	case EX_MOD:
 		if (vm_fault(VM_FAULT_READONLY, tf->tf_vaddr)==0) {
@@ -263,28 +264,19 @@ mips_trap(struct trapframe *tf)
 		if (vm_fault(VM_FAULT_WRITE, tf->tf_vaddr)==0) {
 			// tf_a1 is the src physical
 			// tf_vaddr is the dst virtual
-			pn = tf->tf_vaddr / PAGE_SIZE;
-			uint32_t *dst = NULL;
-			dst = (uint32_t*)PADDR_TO_KVADDR(main_PG[pn].frame_number << 12);
+			ret = pageSearch(tf->tf_vaddr);
+
+			/*uint32_t *dst = NULL;
+			dst = (uint32_t*)PADDR_TO_KVADDR(ret*PAGE_SIZE);
 			uint32_t *src = NULL;
 			src = (uint32_t*)(tf->tf_a1 + tf->tf_v1*sizeof(uint32_t));
 			offset_ = tf->tf_vaddr%PAGE_SIZE;
 			dst += offset_/sizeof(uint32_t);
 			*dst = *src;
-			tf->tf_epc += sizeof(uint32_t);
+			tf->tf_epc += sizeof(uint32_t);*/
 
 			// loading TLB as there was a tlb miss
-
-			int spl = splhigh();
-			uint32_t ehi, elo;
-			paddr_t pa;
-			ehi = tf->tf_vaddr - ((tf->tf_vaddr)%PAGE_SIZE); // PAGE ALIGN
-			pa = main_PG[pn].frame_number << 12;
-			elo = pa | TLBLO_VALID | TLBLO_DIRTY;
-			if ((tf->tf_vaddr >> 12) != 0x400) 
-				tlb_write(ehi, elo, tlb_index++);
-			splx(spl);
-
+			addTLB(tf->tf_vaddr, (ret*PAGE_SIZE + MIPS_KSEG0));
 			goto done;
 		}
 		break;
