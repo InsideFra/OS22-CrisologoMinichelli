@@ -124,6 +124,11 @@ syscall(struct trapframe *tf)
 			DEBUG(DB_VM,"Syscall: read(%d,%x,%d)\n",(unsigned int) tf->tf_a0,(int) tf->tf_a1,(unsigned int) tf->tf_a2);
 			err = 0;
 		break;
+		case SYS__exit:
+			sys__exit(1);
+			DEBUG(DB_VM,"Syscall: exit(%d)\n",(unsigned int) tf->tf_a0);
+			err = 0;
+		break;
 
 	    /* Add stuff here */
 

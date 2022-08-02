@@ -310,7 +310,8 @@ proc_setas(struct addrspace *newas)
 	struct addrspace *oldas;
 	struct proc *proc = curproc;
 
-	KASSERT(proc != NULL);
+	//KASSERT(proc != NULL);
+	// TODO #11
 
 	spinlock_acquire(&proc->p_lock);
 	oldas = proc->p_addrspace;

@@ -1,6 +1,4 @@
 make all --print-data-base --no-builtin-variables --no-builtin-rules --question
-Makefile:11: *** missing separator.  Stop.
-
 # GNU Make 4.3
 # Built for x86_64-pc-linux-gnu
 # Copyright (C) 1988-2020 Free Software Foundation, Inc.
@@ -8,7 +6,7 @@ Makefile:11: *** missing separator.  Stop.
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Sat Jul 23 17:19:46 2022
+# Make data base, printed on Sat Jul 30 14:43:40 2022
 
 # Variables
 
@@ -22,8 +20,6 @@ GNOME_SHELL_SESSION_MODE = ubuntu
 SSH_AGENT_LAUNCHER = gnome-keyring
 # environment
 GJS_DEBUG_OUTPUT = stderr
-# environment
-VSCODE_IPC_HOOK_EXTHOST = /run/user/1000/vscode-ipc-97ea2e73-a105-4dfa-ad06-2daa7d48839e.sock
 # environment
 LC_NAME = en_US.UTF-8
 # environment
@@ -52,12 +48,10 @@ PWD = /home/francesco/os161/os161-base-2.0.3/kern
 XDG_DATA_DIRS = /usr/share/ubuntu:/usr/share/gnome:/usr/local/share/:/usr/share/:/var/lib/snapd/desktop
 # automatic
 ^D = $(patsubst %/,%,$(dir $^))
-# environment
-VSCODE_LOG_STACK = false
 # automatic
 %F = $(notdir $%)
 # environment
-VSCODE_CODE_CACHE_PATH = /home/francesco/.config/Code/CachedData/30d9c6cd9483b2cc586687151bcbcd635f373630
+VSCODE_CODE_CACHE_PATH = /home/francesco/.config/Code/CachedData/3b889b090b5ad5793f524b5d1d39fda662b96a2a
 # environment
 LANG = C
 # environment
@@ -70,8 +64,6 @@ XAUTHORITY = /run/user/1000/gdm/Xauthority
 MAKEFLAGS = pqrR
 # makefile
 CURDIR := /home/francesco/os161/os161-base-2.0.3/kern
-# environment
-VSCODE_PIPE_LOGGING = true
 # environment
 APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL = 1
 # environment
@@ -95,15 +87,13 @@ MAKEFILE_LIST := Makefile
 # automatic
 @F = $(notdir $@)
 # environment
-VSCODE_VERBOSE_LOGGING = true
-# environment
-VSCODE_PID = 18590
+VSCODE_PID = 3931
 # environment
 XDG_SESSION_TYPE = x11
 # automatic
 ?D = $(patsubst %/,%,$(dir $?))
 # environment
-SESSION_MANAGER = local/francesco-TM1701:@/tmp/.ICE-unix/1468,unix/francesco-TM1701:/tmp/.ICE-unix/1468
+SESSION_MANAGER = local/francesco-TM1701:@/tmp/.ICE-unix/1520,unix/francesco-TM1701:/tmp/.ICE-unix/1520
 # automatic
 *F = $(notdir $*)
 # environment
@@ -143,9 +133,7 @@ LC_MONETARY = en_US.UTF-8
 # environment
 LC_TIME = en_US.UTF-8
 # environment
-INVOCATION_ID = 5fd32a7356654808a54c6349a5c7baf5
-# environment
-VSCODE_LOG_NATIVE = false
+INVOCATION_ID = eb206a41792c41da8c5ea0eeeb25bb16
 # environment
 USERNAME = francesco
 # environment
@@ -173,7 +161,7 @@ GIO_LAUNCHED_DESKTOP_FILE = /usr/share/applications/code.desktop
 # makefile
 .DEFAULT_GOAL := 
 # environment
-SYSTEMD_EXEC_PID = 1488
+SYSTEMD_EXEC_PID = 1543
 # environment
 DISPLAY = :0
 # environment
@@ -183,11 +171,11 @@ GTK_MODULES = gail:atk-bridge
 # default
 MAKE_VERSION := 4.3
 # environment
-MANAGERPID = 1239
+MANAGERPID = 1287
 # environment
 LC_MEASUREMENT = en_US.UTF-8
 # environment
-GIO_LAUNCHED_DESKTOP_FILE_PID = 18590
+GIO_LAUNCHED_DESKTOP_FILE_PID = 3931
 # environment
 _ = /usr/share/code/code
 # environment
@@ -197,7 +185,7 @@ XDG_RUNTIME_DIR = /run/user/1000
 # environment
 GPG_AGENT_INFO = /run/user/1000/gnupg/S.gpg-agent:0:1
 # environment
-JOURNAL_STREAM = 8:18400
+JOURNAL_STREAM = 8:32305
 # environment
 XDG_SESSION_CLASS = user
 # environment
@@ -209,7 +197,7 @@ QT_IM_MODULE = ibus
 # environment
 ELECTRON_RUN_AS_NODE = 1
 # environment
-VSCODE_IPC_HOOK = /run/user/1000/vscode-ef618831-1.68.1-main.sock
+VSCODE_IPC_HOOK = /run/user/1000/vscode-ef618831-1.69.2-main.sock
 # environment
 IM_CONFIG_PHASE = 1
 # environment
@@ -231,7 +219,7 @@ GDMSESSION = ubuntu
 # environment
 LC_IDENTIFICATION = en_US.UTF-8
 # variable set hash-table stats:
-# Load=109/1024=11%, Rehash=0, Collisions=5/123=4%
+# Load=104/1024=10%, Rehash=0, Collisions=4/118=3%
 
 # Pattern-specific Variable Values
 
@@ -239,9 +227,9 @@ LC_IDENTIFICATION = en_US.UTF-8
 
 # Directories
 
-# . (device 66310, inode 2139573): 23 files, no impossibilities.
+# . (device 66310, inode 2139573): 25 files, no impossibilities.
 
-# 23 files, no impossibilities in 1 directories.
+# 25 files, no impossibilities in 1 directories.
 
 # Implicit Rules
 
@@ -276,12 +264,14 @@ all:
 
 # No general ('VPATH' variable) search path.
 
-# strcache buffers: 1 (0) / strings = 28 / storage = 194 B / avg = 6 B
-# current buf: size = 8162 B / used = 194 B / count = 28 / avg = 6 B
+# strcache buffers: 1 (0) / strings = 30 / storage = 208 B / avg = 6 B
+# current buf: size = 8162 B / used = 208 B / count = 30 / avg = 6 B
 
-# strcache performance: lookups = 32 / hit rate = 12%
+# strcache performance: lookups = 34 / hit rate = 11%
 # hash-table stats:
-# Load=28/8192=0%, Rehash=0, Collisions=0/32=0%
-# Finished Make data base on Sat Jul 23 17:19:46 2022
+# Load=30/8192=0%, Rehash=0, Collisions=0/34=0%
+# Finished Make data base on Sat Jul 30 14:43:40 2022
 
  
+Makefile:11: *** missing separator.  Stop.
+

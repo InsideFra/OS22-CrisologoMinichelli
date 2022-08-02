@@ -95,6 +95,9 @@ int kmalloctest3(int, char **);
 int kmalloctest4(int, char **);
 int nettest(int, char **);
 
+/* page table test */
+int view_pagetable(int, char **);
+
 /* Routine for running a user-level program. */
 int runprogram(char *progname);
 

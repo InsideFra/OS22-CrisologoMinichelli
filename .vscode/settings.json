@@ -21,6 +21,7 @@
         "sstream": "c",
         "stop_token": "c",
         "streambuf": "c",
-        "file.h": "c"
+        "file.h": "c",
+        "test.h": "c"
     }
 }
