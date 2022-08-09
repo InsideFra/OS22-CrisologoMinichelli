@@ -42,17 +42,13 @@
 #include <page.h>
 #include <machine/tlb.h>
 
-
 /* in exception-*.S */
 extern __DEAD void asm_usermode(struct trapframe *tf);
 
 /* called only from assembler, so not declared in a header */
 void mips_trap(struct trapframe *tf);
 
-extern struct PG_ *main_PG;
-
-static uint32_t tlb_index = 0;
-
+extern struct RAM_PG_ *main_PG;
 
 /* Names for trap codes */
 #define NTRAPCODES 13
@@ -236,9 +232,6 @@ mips_trap(struct trapframe *tf)
 	 * Call vm_fault on the TLB exceptions.
 	 * Panic on the bus error exceptions.
 	 */
-	unsigned int pn = 0;
-	//unsigned int offset_ = 0;
-	int ret = 0;
 	switch (code) {
 	case EX_MOD:
 		if (vm_fault(VM_FAULT_READONLY, tf->tf_vaddr)==0) {
@@ -247,16 +240,6 @@ mips_trap(struct trapframe *tf)
 		break;
 	case EX_TLBL:
 		if (vm_fault(VM_FAULT_READ, tf->tf_vaddr)==0) {
-			pn = tf->tf_vaddr / PAGE_SIZE;
-			// loading TLB as there was a tlb miss on read
-			int spl = splhigh();
-			uint32_t ehi, elo;
-			paddr_t pa;
-			ehi = tf->tf_vaddr - ((tf->tf_vaddr)%PAGE_SIZE); // PAGE ALIGN
-			pa = main_PG[pn].frame_number << 12;
-			elo = pa | TLBLO_VALID | TLBLO_DIRTY;
-			tlb_write(ehi, elo, tlb_index++);
-			splx(spl);
 			goto done;
 		}
 		break;
@@ -264,19 +247,6 @@ mips_trap(struct trapframe *tf)
 		if (vm_fault(VM_FAULT_WRITE, tf->tf_vaddr)==0) {
 			// tf_a1 is the src physical
 			// tf_vaddr is the dst virtual
-			ret = pageSearch(tf->tf_vaddr);
-
-			/*uint32_t *dst = NULL;
-			dst = (uint32_t*)PADDR_TO_KVADDR(ret*PAGE_SIZE);
-			uint32_t *src = NULL;
-			src = (uint32_t*)(tf->tf_a1 + tf->tf_v1*sizeof(uint32_t));
-			offset_ = tf->tf_vaddr%PAGE_SIZE;
-			dst += offset_/sizeof(uint32_t);
-			*dst = *src;
-			tf->tf_epc += sizeof(uint32_t);*/
-
-			// loading TLB as there was a tlb miss
-			addTLB(tf->tf_vaddr, (ret*PAGE_SIZE + MIPS_KSEG0));
 			goto done;
 		}
 		break;
