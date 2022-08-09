@@ -37,6 +37,8 @@
 #include <spl.h>
 #include <page.h>
 #include <machine/tlb.h>
+#include <kern/fcntl.h>
+#include <vfs.h>
 
 extern struct RAM_PG_ *main_PG;
 
@@ -70,7 +72,7 @@ as_create(void)
 
 	as->processPageTable = p_PG;
 	as->processPageTable_INFO = p_PG_Info;
-	
+
 	return as;
 }
 
@@ -277,12 +279,22 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 {
 	struct addrspace *as;
 	
+	as = proc_getas();
+	if (as == NULL) {
+		/*
+		 * No address space set up. This is probably also a
+		 * kernel fault early in boot.
+		 */
+		return EFAULT;
+	}
+
 	faultaddress &= PAGE_FRAME;
 
-	//DEBUG(DB_VM, "dumbvm: fault: 0x%x\n", faultaddress);
-
-	//unsigned int pn = 0;
+	struct vnode *v;
+	vaddr_t entrypoint;
+	int result = 0;
 	int ret = 0;
+	uint32_t a, b, c, d;
 	switch (faulttype) {
 	    case VM_FAULT_READONLY:
 		/* We always create pages read-write, so we can't get this */
@@ -293,16 +305,70 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 			if (ret > 0) {
 				panic("Function not developed yet");
 			} else {
-				panic("TLB Miss and No PageTable Valid Entry found.");
+				if (is_codeSegment(faultaddress, as)) {
+					// the TLB miss happened during a read to a code segment
+					// we can load this code segment from the ELF program file
+					b = as->processPageTable_INFO->code_vaddr;
+					d = (faultaddress - b) >> 12;
+					a = as->processPageTable_INFO->code_entries;
+					c = (d%a);
+
+					for (unsigned int i = 0; i < (as->as_npages_code/as->processPageTable_INFO->code_entries); i++) {
+						ret = pageSearch(b + c*PAGE_SIZE + i*(a*PAGE_SIZE));
+						if (ret != noEntryFound) {
+							if(free_kpages((vaddr_t)(main_PG[ret].page_number)*PAGE_SIZE)) {
+								return EINVAL;
+							}
+							break;
+						} else {
+							continue;
+						}
+					}
+
+					result = alloc_kpages(1, faultaddress);
+
+					if (result == 0) {
+						return EINVAL;
+					}
+
+					if (addTLB(faultaddress, result)) {
+						return EINVAL;
+					}
+
+					/* Open the file. */
+					result = vfs_open(as->program_name, O_RDONLY, 0, &v);
+					if (result) {
+						return result;
+					}
+
+					/* Load 1 pages from the faultaddress. */
+					result = load_elf(v, &entrypoint, faultaddress, 1);
+					if (result) {
+						/* p_addrspace will go away when curproc is destroyed */
+						vfs_close(v);
+						return result;
+					}
+
+					return 0;
+					
+				} else {
+					DEBUG(DB_VM, "TLB Miss and No PageTable Valid Entry found.\n");
+					return EINVAL;
+				}
 				return EINVAL;
 			}
 			break;
 	    case VM_FAULT_WRITE:
 			ret = pageSearch(faultaddress);
 			if (ret < 0) {
-				panic("Something went wrong with address 0x%x", 
+				DEBUG(DB_VM, "Something went wrong with address 0x%x", 
 					faultaddress);
+				return 1;
 			}
+			
+			if(addTLB(faultaddress, (ret*PAGE_SIZE + MIPS_KSEG0)))
+				return 1;
+
 			return 0;
 			break;
 	    default:
@@ -314,15 +380,6 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		 * No process. This is probably a kernel fault early
 		 * in boot. Return EFAULT so as to panic instead of
 		 * getting into an infinite faulting loop.
-		 */
-		return EFAULT;
-	}
-
-	as = proc_getas();
-	if (as == NULL) {
-		/*
-		 * No address space set up. This is probably also a
-		 * kernel fault early in boot.
 		 */
 		return EFAULT;
 	}
@@ -376,7 +433,20 @@ vm_bootstrap(void)
 		main_PG[127-i].Valid = 1;
 	}
 
-	DROP_PG(1);
+	// TLB
+
+	uint32_t ehi, elo;
+    int32_t spl = splhigh();
+
+    for (unsigned int i = 0; i < NUM_TLB; i++) {
+		ehi = TLBHI_INVALID(i);
+    	elo = TLBLO_INVALID();
+		tlb_write(ehi, elo, i);
+	}
+
+	splx(spl);
+
+	//DROP_PG(1);
 }
 
 void

@@ -79,8 +79,7 @@ int
 load_segment(struct addrspace *as, struct vnode *v,
 	     off_t offset, vaddr_t vaddr,
 	     size_t memsize, size_t filesize,
-	     int is_executable)
-{
+	     int is_executable) {
 	struct iovec iov;
 	struct uio u;
 	int result;
@@ -151,7 +150,7 @@ load_segment(struct addrspace *as, struct vnode *v,
  * Returns the entry point (initial PC) for the program in ENTRYPOINT.
  */
 int
-load_elf(struct vnode *v, vaddr_t *entrypoint)
+load_elf(struct vnode *v, vaddr_t *entrypoint, vaddr_t start, uint32_t npages)
 {
 	Elf_Ehdr eh;   /* Executable header */
 	Elf_Phdr ph;   /* "Program header" = segment header */
@@ -243,19 +242,23 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 			return ENOEXEC;
 		}
 
-		result = as_define_region(as,
-					  ph.p_vaddr, ph.p_memsz,
-					  ph.p_flags & PF_R,
-					  ph.p_flags & PF_W,
-					  ph.p_flags & PF_X);
+		if (start == 0) {
+			result = as_define_region(as,
+						ph.p_vaddr, ph.p_memsz,
+						ph.p_flags & PF_R,
+						ph.p_flags & PF_W,
+						ph.p_flags & PF_X);
+			if (result) {
+				return result;
+			}
+		}
+	}
+	
+	if (start == 0) {
+		result = as_prepare_load(as);
 		if (result) {
 			return result;
 		}
-	}
-
-	result = as_prepare_load(as);
-	if (result) {
-		return result;
 	}
 
 	/*
@@ -288,28 +291,44 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 			return ENOEXEC;
 		}
 
-		if ((ph.p_flags & PF_X) == 1) { // code segment, executable
-			if (ph.p_filesz/(uint32_t)PAGE_SIZE > MAX_CODE_SEGMENT_PAGES) { // Demand paging
-				ph.p_memsz = MAX_CODE_SEGMENT_PAGES*PAGE_SIZE;
-			} else { // Not need for demand paging
+		if (start == 0) {
+			if ((ph.p_flags & PF_X) == 1) { // code segment, executable
+				if (ph.p_filesz/(uint32_t)PAGE_SIZE > MAX_CODE_SEGMENT_PAGES) { // Demand paging
+					ph.p_memsz = MAX_CODE_SEGMENT_PAGES*PAGE_SIZE;
+				} else { // Not need for demand paging
+					
+				}
+			} else {
 				
 			}
-		} else {
-			
 		}
 
-		result = load_segment(as, v, ph.p_offset, ph.p_vaddr,
-			ph.p_memsz, ph.p_filesz,
-			ph.p_flags & PF_X);
+		if (start == 0) {
+			result = load_segment(as, v, ph.p_offset, ph.p_vaddr,
+				ph.p_memsz, ph.p_filesz,
+				ph.p_flags & PF_X);
+		} else {
+			// We want to load only a small part of the segment
+			result = load_segment(as, v, ph.p_offset+(start-ph.p_vaddr), start,
+					npages*PAGE_SIZE, npages*PAGE_SIZE,
+					ph.p_flags & PF_X);
+			if (result) {
+				return result;
+			}
 
+			return 0;
+		}
+		
 		if (result) {
 			return result;
 		}
 	}
 
-	result = as_complete_load(as);
-	if (result) {
-		return result;
+	if (start == 0) {
+		result = as_complete_load(as);
+		if (result) {
+			return result;
+		}
 	}
 
 	*entrypoint = eh.e_entry;

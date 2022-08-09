@@ -9,6 +9,7 @@
 #include <spl.h>
 #include <lib.h>
 #include <test.h>
+#include <addrspace.h>
 
 // You can find information in the vm.h include file
 
@@ -21,7 +22,12 @@ static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
 
 struct RAM_PG_ (*main_PG) = NULL;
 
-/* Allocate/free some kernel-space virtual pages */
+/**
+* Allocate/free some kernel-space virtual pages
+* @param npages How many pages to alloc
+* @param as_vbase Starting virtual address
+* @return 0 if error else the starting physical address
+*/
 vaddr_t
 alloc_kpages(unsigned npages, vaddr_t as_vbase)
 {
@@ -48,14 +54,81 @@ alloc_kpages(unsigned npages, vaddr_t as_vbase)
     return 0;
 }
 
-void
+/**
+* free some kernel-space virtual pages
+* @param addr Virtual address to free
+* @return 1 if error else 0
+*/
+int
 free_kpages(vaddr_t addr)
 {
-	/* nothing - leak the memory. */
+    addr &= PAGE_FRAME;
+    uint32_t page_number = addr >> 12; 
+    _Bool valid_pages = false;
+    uint32_t page_index = 0;   
+    for(unsigned int i = 0; i < PAGETABLE_ENTRY; i++) {
+        if (main_PG[i].Valid == 1) {
+            if (main_PG[i].page_number == page_number) {
+                valid_pages = true;
+                page_index = i;
+            } else {
+                continue;
+            }            
+        } else {
+            continue;
+        }
+    }
 
-	(void)addr;
+    if (valid_pages == false) {
+        return 1;
+    } else {
+            main_PG[page_index].Valid = 0;
+            main_PG[page_index].pid = 0;
+            main_PG[page_index].page_number = 0;
+
+            if (removeTLB(addr)) {
+                return 1;
+            }
+
+            // DEBUG
+            char toPass = (char)(page_index); 
+            char* ptrPass;
+            char** ptrPass2;
+
+            ptrPass2 = &ptrPass;
+            ptrPass = &toPass;
+                
+            view_pagetable(3, ptrPass2);
+
+            return 0;         
+    }
+    return 1;
 }
 
+/**
+* This method checks if the virtual address passed belong to a code segment.
+* This methos uses the address space to achieve this.
+* @author @InsideFra
+* @param vaddr The virtual address (0x00..)
+* @param as the address space
+* @date 09/08/2022
+* @return 1 if everything is okay else ..
+*/
+int
+is_codeSegment(vaddr_t vaddr, struct addrspace* as) {
+    if ((vaddr - (vaddr_t)as->processPageTable_INFO->code_vaddr) <= ((vaddr_t)as->as_npages_code << 12)) {
+        return 1;
+    }
+    return 0;
+}
+
+/**
+* This method checks if the virtual address is present and valid inside the RAM Page Table.
+* @author @InsideFra
+* @param vaddr The virtual address (0x00..)
+* @date 09/08/2022
+* @return index of the page table else noEntryFound;
+*/
 int
 pageSearch(vaddr_t addr) {
     unsigned int first_valid = 0;
@@ -71,6 +144,7 @@ pageSearch(vaddr_t addr) {
     }
 
     if (valid_pages == 0) {
+        DEBUG(DB_VM, "No Entry Found - 0x%x\n", addr);
         return noEntryFound;
     } else {
         // DEBUG
@@ -85,13 +159,14 @@ pageSearch(vaddr_t addr) {
 
         return first_valid;        
     }
+    DEBUG(DB_VM, "No Entry Found - 0x%x\n", addr);
     return noEntryFound;
 }
 
 /**
 * This method will be used to add an entry to the hardware TLB.
 * @author @InsideFra
-* @param vaddr The virtual address (0x00..)
+* @param vaddr The virtual address (0x00..) (even not aligned)
 * @param paddr The physicial address (0x80..)
 * @date 02/08/2022
 * @return 0 if everything is okay else panic
@@ -100,24 +175,91 @@ int
 addTLB(vaddr_t vaddr, paddr_t paddr) {
     uint32_t ehi, elo;
     paddr_t pa;
-    int spl = splhigh();
+    int32_t tlb_index_probe;
+    int32_t spl = splhigh();
 
-    ehi = vaddr - ((vaddr)%PAGE_SIZE); // PAGE ALIGN
+    ehi = vaddr & PAGE_FRAME; // PAGE ALIGN
     pa = paddr - MIPS_KSEG0;
     elo = pa | TLBLO_VALID | TLBLO_DIRTY;
 
-    tlb_random(ehi, elo);
-    int tlb_index_probe = tlb_probe(ehi, elo); 
-    if (tlb_index_probe < 0) {
-        panic("Generic TLB Error\n");
+    tlb_index_probe = tlb_probe(ehi, elo); 
+    if (tlb_index_probe > 0) {
+        DEBUG(DB_VM, "TLB Error: duplicate TLB entries\n");
+        return 1;
     }
 
-    DEBUG(DB_VM, "Written vAddr: 0x%x -> pAddr: 0x%x in to the TLB Index [%u]\n", 
-    ehi, paddr, tlb_index_probe);
+    for (unsigned int i = 0; i < NUM_TLB; i++) {
+        tlb_read(&ehi, &elo, i);
 
+        if(! ((elo & 0x00000fff) & TLBLO_VALID)) { // invalid
+            ehi = vaddr & PAGE_FRAME; // PAGE ALIGN
+            pa = paddr - MIPS_KSEG0;
+            elo = pa | TLBLO_VALID | TLBLO_DIRTY;
+            tlb_write(ehi, elo, i);
+            splx(spl);
+
+            tlb_index_probe = tlb_probe(ehi, elo); 
+            if (tlb_index_probe < 0) {
+                panic("Generic TLB Error\n");
+            }
+
+            DEBUG(DB_VM, "Written vAddr: 0x%x -> pAddr: 0x%x in to the TLB Index [%u]\n", 
+            ehi, paddr, tlb_index_probe);
+
+            splx(spl);
+
+            return 0;
+        }
+    }
+    return 1;
+}
+
+/**
+* This method will be used to remove an entry to the hardware TLB.
+* @author @InsideFra
+* @date 02/08/2022
+* @param {vaddr_t} vaddr The virtual address (0x00..) (even not aligned)
+* @return 0 if everything is entry is missing/the entry has been removed, 1 if error
+*/
+int
+removeTLB(vaddr_t vaddr) {
+    uint32_t ehi, elo;
+    int32_t spl = splhigh();
+    uint32_t paddr;
+
+    vaddr &= PAGE_FRAME; // PAGE ALIGN
+    
+    for (unsigned int i = 0; i < NUM_TLB; i++) {
+        tlb_read(&ehi, &elo, i);
+
+        if(ehi == vaddr) {
+            paddr = elo >> 12;
+            ehi = TLBHI_INVALID(i);
+            elo = TLBLO_INVALID();
+            tlb_write(ehi, elo, i);
+            splx(spl);
+
+            DEBUG(DB_VM, "removeTLB: vAddr: 0x%x, pAddr: 0x%x ", vaddr, paddr);
+            
+            if( (elo & 0x00000fff) & TLBLO_DIRTY) {
+                DEBUG(DB_VM, "Dirty "); }
+            else {
+                DEBUG(DB_VM, "No Dirty "); }
+            
+            if( (elo & 0x00000fff) & TLBLO_VALID) {
+                DEBUG(DB_VM, "Invalid "); }
+            else {
+                DEBUG(DB_VM, "Valid "); }
+
+            DEBUG(DB_VM, "[%u]\n", i);
+            
+            return 0;
+        }
+
+    }
+    DEBUG(DB_VM, "removeTLB Error: noEntryFound\n");
     splx(spl);
-
-    return 0;
+    return 1;
 }
 
 /* Allocate/free some user-space virtual pages */
@@ -193,7 +335,7 @@ int view_pagetable(int nargs, char **args) {
             case 1:
                 number = (unsigned int)(**args);
                 DEBUG(DB_VM, "\n");
-                DEBUG(DB_VM, "(1): [%d] PN: %x\tpAddr: 0x%x\t-%s-\t",
+                DEBUG(DB_VM, "(allocPage): [%d] PN: %x\tpAddr: 0x%x\t-%s-\t",
                     number, 
                     main_PG[number].page_number, 
                     PADDR_TO_KVADDR(4096*(number)), 
@@ -203,14 +345,23 @@ int view_pagetable(int nargs, char **args) {
             case 2:
                 number = (unsigned int)(**args);
                 DEBUG(DB_VM, "\n");
-                DEBUG(DB_VM, "(2): [%d] PN: %x\tpAddr: 0x%x\t-%s-\t",
+                DEBUG(DB_VM, "(pageSearch): [%d] PN: %x\tpAddr: 0x%x\t-%s-\t",
                     number, 
                     main_PG[number].page_number, 
                     PADDR_TO_KVADDR(4096*(number)), 
                     main_PG[number].Valid == 1 ? "V" : "N");
                     DEBUG(DB_VM, "\n");
                 break;
-            
+            case 3:
+                number = (unsigned int)(**args);
+                DEBUG(DB_VM, "\n");
+                DEBUG(DB_VM, "(freePage): [%d] PN: %x\tpAddr: 0x%x\t-%s-\t",
+                    number, 
+                    main_PG[number].page_number, 
+                    PADDR_TO_KVADDR(4096*(number)), 
+                    main_PG[number].Valid == 1 ? "V" : "N");
+                    DEBUG(DB_VM, "\n");
+                break;
             default:
                 break;
         }
