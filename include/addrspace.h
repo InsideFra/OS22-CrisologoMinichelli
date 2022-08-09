@@ -72,6 +72,8 @@ struct addrspace {
         
         struct process_PG* processPageTable;
         struct PG_Info* processPageTable_INFO;
+
+        char *program_name;
 #endif
 };
 
@@ -140,7 +142,9 @@ void              as_zero_region(paddr_t paddr, unsigned int npages);
  *               in the space pointed to by ENTRYPOINT.
  */
 
-int load_elf(struct vnode *v, vaddr_t *entrypoint);
+int load_elf(struct vnode *v, vaddr_t *entrypoint, vaddr_t start, uint32_t npages);
+
+int is_codeSegment(vaddr_t vaddr, struct addrspace *as);
 
 
 #endif /* _ADDRSPACE_H_ */
