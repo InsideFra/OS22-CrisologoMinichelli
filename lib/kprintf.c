@@ -105,7 +105,8 @@ kprintf(const char *fmt, ...)
 		&& curcpu->c_spinlocks == 0;
 
 	if (dolock) {
-		lock_acquire(kprintf_lock);
+		//lock_acquire(kprintf_lock);
+		spinlock_acquire(&kprintf_spinlock);
 	}
 	else {
 		spinlock_acquire(&kprintf_spinlock);
@@ -116,7 +117,8 @@ kprintf(const char *fmt, ...)
 	va_end(ap);
 
 	if (dolock) {
-		lock_release(kprintf_lock);
+		//lock_release(kprintf_lock);
+		spinlock_release(&kprintf_spinlock);
 	}
 	else {
 		spinlock_release(&kprintf_spinlock);
