@@ -56,11 +56,12 @@ struct process_PG {
 
 // this struct should be at the top of process_PG
 struct PG_Info {
-    uint32_t code_vaddr;
-    uint8_t code_entries;
-    uint8_t data_entries;
-    uint8_t heap_entries;
-    uint8_t stack_entries;
+    vaddr_t code_vaddr;
+    uint8_t  code_entries;
+    vaddr_t data_vaddr;
+    uint8_t  data_entries;
+    uint8_t  heap_entries;
+    uint8_t  stack_entries;
 };
 
 #endif /* _PAGE_H_ */

@@ -90,6 +90,8 @@ free_kpages(vaddr_t addr)
                 return 1;
             }
 
+            as_zero_region(PADDR_TO_KVADDR(page_index << 12), 1);
+
             // DEBUG
             char toPass = (char)(page_index); 
             char* ptrPass;
@@ -116,8 +118,30 @@ free_kpages(vaddr_t addr)
 */
 int
 is_codeSegment(vaddr_t vaddr, struct addrspace* as) {
-    if ((vaddr - (vaddr_t)as->processPageTable_INFO->code_vaddr) <= ((vaddr_t)as->as_npages_code << 12)) {
-        return 1;
+    vaddr_t offset = (vaddr_t)(as->as_npages_code << 12);
+    if (vaddr <= as->processPageTable_INFO->code_vaddr + offset) {
+        if (vaddr >= as->processPageTable_INFO->code_vaddr)
+            return 1;
+    }
+    return 0;
+}
+
+/**
+* This method checks if the virtual address passed belong to a data segment.
+* This methos uses the address space to achieve this.
+* @author @InsideFra
+* @param vaddr The virtual address (0x00..)
+* @param as the address space
+* @date 09/08/2022
+* @return 1 if everything is okay else ..
+*/
+int
+is_dataSegment(vaddr_t vaddr, struct addrspace* as) {
+    vaddr_t offset = (vaddr_t)(as->as_npages_data << 12);
+    if (vaddr <= as->processPageTable_INFO->data_vaddr + offset) {
+        if (vaddr >= as->processPageTable_INFO->data_vaddr) {
+            return 1;
+        }
     }
     return 0;
 }
@@ -144,7 +168,7 @@ pageSearch(vaddr_t addr) {
     }
 
     if (valid_pages == 0) {
-        DEBUG(DB_VM, "No Entry Found - 0x%x\n", addr);
+        DEBUG(DB_VM, "(pageSearc): No Entry Found - 0x%x\n", addr);
         return noEntryFound;
     } else {
         // DEBUG
@@ -159,7 +183,7 @@ pageSearch(vaddr_t addr) {
 
         return first_valid;        
     }
-    DEBUG(DB_VM, "No Entry Found - 0x%x\n", addr);
+    DEBUG(DB_VM, "(pageSearc): No Entry Found - 0x%x\n", addr);
     return noEntryFound;
 }
 
@@ -176,12 +200,12 @@ addTLB(vaddr_t vaddr, paddr_t paddr) {
     uint32_t ehi, elo;
     paddr_t pa;
     int32_t tlb_index_probe;
-    int32_t spl = splhigh();
 
     ehi = vaddr & PAGE_FRAME; // PAGE ALIGN
     pa = paddr - MIPS_KSEG0;
     elo = pa | TLBLO_VALID | TLBLO_DIRTY;
 
+    splhigh();
     tlb_index_probe = tlb_probe(ehi, elo); 
     if (tlb_index_probe > 0) {
         DEBUG(DB_VM, "TLB Error: duplicate TLB entries\n");
@@ -196,18 +220,15 @@ addTLB(vaddr_t vaddr, paddr_t paddr) {
             pa = paddr - MIPS_KSEG0;
             elo = pa | TLBLO_VALID | TLBLO_DIRTY;
             tlb_write(ehi, elo, i);
-            splx(spl);
 
             tlb_index_probe = tlb_probe(ehi, elo); 
             if (tlb_index_probe < 0) {
                 panic("Generic TLB Error\n");
             }
 
-            DEBUG(DB_VM, "Written vAddr: 0x%x -> pAddr: 0x%x in to the TLB Index [%u]\n", 
-            ehi, paddr, tlb_index_probe);
+            DEBUG(DB_VM, "(TLBwrite ): [%3d] PN: %x\tpAddr: 0x%x\n", tlb_index_probe, ehi >> 12, paddr);
 
-            splx(spl);
-
+            spl0();
             return 0;
         }
     }
@@ -224,11 +245,10 @@ addTLB(vaddr_t vaddr, paddr_t paddr) {
 int
 removeTLB(vaddr_t vaddr) {
     uint32_t ehi, elo;
-    int32_t spl = splhigh();
     uint32_t paddr;
-
     vaddr &= PAGE_FRAME; // PAGE ALIGN
-    
+
+    splhigh();
     for (unsigned int i = 0; i < NUM_TLB; i++) {
         tlb_read(&ehi, &elo, i);
 
@@ -237,9 +257,8 @@ removeTLB(vaddr_t vaddr) {
             ehi = TLBHI_INVALID(i);
             elo = TLBLO_INVALID();
             tlb_write(ehi, elo, i);
-            splx(spl);
 
-            DEBUG(DB_VM, "removeTLB: vAddr: 0x%x, pAddr: 0x%x ", vaddr, paddr);
+            DEBUG(DB_VM, "(TLBremove): [%3d] PN: %x\tpAddr: 0x%x\t", i, vaddr >> 12, PADDR_TO_KVADDR(paddr << 12));
             
             if( (elo & 0x00000fff) & TLBLO_DIRTY) {
                 DEBUG(DB_VM, "Dirty "); }
@@ -251,14 +270,14 @@ removeTLB(vaddr_t vaddr) {
             else {
                 DEBUG(DB_VM, "Valid "); }
 
-            DEBUG(DB_VM, "[%u]\n", i);
-            
+            DEBUG(DB_VM, "\n");
+            spl0();
             return 0;
         }
 
     }
     DEBUG(DB_VM, "removeTLB Error: noEntryFound\n");
-    splx(spl);
+    spl0();
     return 1;
 }
 
@@ -334,8 +353,7 @@ int view_pagetable(int nargs, char **args) {
         switch (nargs) {
             case 1:
                 number = (unsigned int)(**args);
-                DEBUG(DB_VM, "\n");
-                DEBUG(DB_VM, "(allocPage): [%d] PN: %x\tpAddr: 0x%x\t-%s-\t",
+                DEBUG(DB_VM, "(allocPage): [%3d] PN: %x\tpAddr: 0x%x\t-%s-\t",
                     number, 
                     main_PG[number].page_number, 
                     PADDR_TO_KVADDR(4096*(number)), 
@@ -344,8 +362,7 @@ int view_pagetable(int nargs, char **args) {
                 break;
             case 2:
                 number = (unsigned int)(**args);
-                DEBUG(DB_VM, "\n");
-                DEBUG(DB_VM, "(pageSearch): [%d] PN: %x\tpAddr: 0x%x\t-%s-\t",
+                DEBUG(DB_VM, "(pageSearc): [%3d] PN: %x\tpAddr: 0x%x\t-%s-\t",
                     number, 
                     main_PG[number].page_number, 
                     PADDR_TO_KVADDR(4096*(number)), 
@@ -354,8 +371,7 @@ int view_pagetable(int nargs, char **args) {
                 break;
             case 3:
                 number = (unsigned int)(**args);
-                DEBUG(DB_VM, "\n");
-                DEBUG(DB_VM, "(freePage): [%d] PN: %x\tpAddr: 0x%x\t-%s-\t",
+                DEBUG(DB_VM, "(freePage ): [%3d] PN: %x\tpAddr: 0x%x\t-%s-\t",
                     number, 
                     main_PG[number].page_number, 
                     PADDR_TO_KVADDR(4096*(number)), 

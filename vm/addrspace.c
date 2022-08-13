@@ -54,7 +54,8 @@ as_create(void)
 	struct addrspace *as = kmalloc(sizeof (struct addrspace));
 	struct process_PG *p_PG = kmalloc(Process_PG_ENTRY*(sizeof(struct process_PG)));
 	struct PG_Info *p_PG_Info = kmalloc(sizeof (struct PG_Info));  
-	DROP_PG(1);
+	
+	//DROP_PG(1);
 	if (as == NULL) {
 		return NULL;
 	}
@@ -145,38 +146,38 @@ int
 as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 		 int readable, int writeable, int executable)
 {
-	/*
-	 * Write this.
-	 */
-
-	(void)as;
-	(void)vaddr;
-	(void)memsize;
-	(void)readable;
-	(void)writeable;
 	if (executable) {
 		// We are now loading a CODE segment
-		as->as_vbase_code = vaddr;
-		as->as_npages_code = memsize/4096 + 1;
-		DEBUG(DB_VM, "\nPAGING CODE: vAddr: 0x%x size: %u pages: %u\n", 
-			as->as_vbase_code, memsize, as->as_npages_code);
-
-		as->processPageTable_INFO->code_vaddr = as->as_vbase_code;
-		as->processPageTable_INFO->code_entries = MAX_CODE_SEGMENT_PAGES;
-
+		as->as_vbase_code = vaddr; 				// We store the first virtual address of the code segment 
+		as->as_npages_code = memsize/4096 + 1;	// We store how many pages would require the code segment
 		
+		// DEBUG
+		DEBUG(DB_VM, "\nCODE SEGMENT: start vAddr: 0x%x, size: %u pages: %u\n", 
+			as->as_vbase_code, memsize, as->as_npages_code);
+		if (as->as_npages_code > MAX_CODE_SEGMENT_PAGES) 
+			DEBUG(DB_VM, "CODE SEGMENT: Demand Paging Activate\n");
+	    else 
+			DEBUG(DB_VM, "CODE SEGMENT: Demand Paging not needed in this case\n");
+
+		as->processPageTable_INFO->code_vaddr = as->as_vbase_code & PAGE_FRAME;	// We store in the pagetable INFO the first virtual address of the code segment
+		as->processPageTable_INFO->code_entries = MAX_CODE_SEGMENT_PAGES;	// If we mantain this as a DEFINE, we can not use code_entries but use the MAX_CODE..
+
 		for (unsigned int i = 0; i < MAX_CODE_SEGMENT_PAGES; i++) {
+			
 			// Virtualizzation
+			DEBUG(DB_VM, "CODE SEGMENT: ");
 			paddr_t addr = alloc_kpages(1, as->as_vbase_code+i*PAGE_SIZE);
 
 			if (addr == 0) {
 				panic("Error during memory allocation. See alloc_kpages called by as_define_region.\n");
 			}
 
-			as->as_pbase_code = addr;
+			if (as->as_pbase_code == 0)
+				as->as_pbase_code = addr; 			// We store the first physical address, but i think this is useless?
 
+			/* Process Page */
+			/* not fully implemented yet */
 			struct process_PG pPage = {0};
-
 			pPage.Protection = (1 << 2) | (0 << 1) | (1 << 0); // RWE
 			pPage.CachingDisabled = 1;
 			pPage.frame_number = addr/PAGE_SIZE;
@@ -188,30 +189,78 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 			if (update_process_PG(as->processPageTable, &pPage)) {
 				panic("Generic VM Error\n");
 			}
+			/* End Process Page */
 
 			// Update TLB??
+			DEBUG(DB_VM, "CODE SEGMENT: ");
 			addTLB(as->as_vbase_code+i*PAGE_SIZE, addr);
 		}
-
-		if (as->as_npages_code > MAX_CODE_SEGMENT_PAGES) {
-			DEBUG(DB_VM, "Demand Paging Activate");
-		}
-	    else {
-			DEBUG(DB_VM, "Demand Paging not needed in this case");
-		}
-		
 		return 0;
 	} else {
-		// We are now loading a DATA segment
-		as->as_vbase_data = vaddr;
-		as->as_npages_data = memsize/4096 + 1;
-		DEBUG(DB_VM, "\nPAGING DATA: vAddr: 0x%x size: %u pages: %u\n", 
-			as->as_vbase_data, memsize, as->as_npages_data);
-		return 0;
-	}
-	// TODO #9
+		// Not executable code
+		if (writeable) {
+			// Writable segment
+		}
 
-	DEBUG(DB_VM, "Unknown PAGING");
+		if (readable) {
+			// Readable segment
+		}
+
+		if (writeable && readable) {	// writable and readable
+			// We are now loading a DATA segment 	
+			as->as_vbase_data = vaddr;				// We store the first virtual address of the data segment 
+			as->as_npages_data = memsize/4096 + 1;	// We store how many pages would require the data segment
+			
+			// DEBUG
+			DEBUG(DB_VM, "\nDATA SEGMENT: start vAddr: 0x%x, size: %u pages: %u\n", 
+				as->as_vbase_data, memsize, as->as_npages_data);
+			if (as->as_npages_data > MAX_DATA_SEGMENT_PAGES) 
+				DEBUG(DB_VM, "DATA SEGMENT: Demand Paging Activate\n");
+			else 
+				DEBUG(DB_VM, "DATA SEGMENT: Demand Paging not needed in this case\n");
+
+			as->processPageTable_INFO->data_vaddr = as->as_vbase_data & PAGE_FRAME;	// We store in the pagetable INFO the first virtual address of the code segment
+			as->processPageTable_INFO->data_entries = MAX_DATA_SEGMENT_PAGES;	// If we mantain this as a DEFINE, we can not use code_entries but use the MAX_CODE..
+
+			for (unsigned int i = 0; i < MAX_DATA_SEGMENT_PAGES; i++) {
+				
+				// Virtualizzation
+				DEBUG(DB_VM, "DATA SEGMENT: ");
+				paddr_t addr = alloc_kpages(1, as->as_vbase_data+i*PAGE_SIZE);
+
+				if (addr == 0) {
+					panic("Error during memory allocation. See alloc_kpages called by as_define_region.\n");
+				}
+
+				if (as->as_pbase_data == 0)
+					as->as_pbase_data = addr; 			// We store the first physical address, but i think this is useless?
+
+				/* Process Page */
+				/* not fully implemented yet */
+				struct process_PG pPage = {0};
+				pPage.Protection = (1 << 2) | (0 << 1) | (1 << 0); // RWE
+				pPage.CachingDisabled = 1;
+				pPage.frame_number = addr/PAGE_SIZE;
+				pPage.Modified = 0;
+				pPage.pagenumber = as->as_vbase_data/PAGE_SIZE;
+				pPage.Referenced = 0;
+				pPage.Valid = 1;
+
+				if (update_process_PG(as->processPageTable, &pPage)) {
+					panic("Generic VM Error\n");
+				}
+				/* End Process Page */
+
+				// Update TLB??
+				DEBUG(DB_VM, "DATA SEGMENT: ");
+				addTLB(as->as_vbase_data+i*PAGE_SIZE, addr);
+			}
+			return 0;
+		}
+		DEBUG(DB_VM, "PAGING: General Error");
+		return ENOSYS;
+	}
+	DEBUG(DB_VM, "PAGING: General Error");
 	return ENOSYS;
 }
 
@@ -219,14 +268,10 @@ int
 as_prepare_load(struct addrspace *as)
 {
 	vaddr_t vbase_topass = 0;
+	DEBUG(DB_VM, "\nCODE: vAddr = 0x%x\tCODE: pAddr = 0x%x\n",
+		as->as_vbase_code, as->as_pbase_code);
 
-	vbase_topass = as->as_vbase_data - (as->as_vbase_data%PAGE_SIZE); // PAGE ALIGN
-	as->as_pbase_data = alloc_kpages(as->as_npages_data, vbase_topass);
-	if (as->as_pbase_data == 0) {
-		return ENOMEM;
-	}
-
-	DEBUG(DB_VM, "\nDATA: vAddr = 0x%x\nDATA: pAddr = 0x%x",
+	DEBUG(DB_VM, "\nDATA: vAddr = 0x%x\tDATA: pAddr = 0x%x\n",
 		as->as_vbase_data, as->as_pbase_data);
 
 	as->as_vbase_stack = as->as_vbase_data + PAGE_SIZE*as->as_npages_data;
@@ -236,9 +281,8 @@ as_prepare_load(struct addrspace *as)
 		return ENOMEM;
 	}
 
-	DEBUG(DB_VM, "\nSTACK: vAddr = 0x%x\nvSTACK: pAddr = 0x%x\n",
+	DEBUG(DB_VM, "\nSTACK: vAddr = 0x%x\tSTACK: pAddr = 0x%x\n",
 		as->as_vbase_stack, as->as_pbase_stack);
-
 
 	//as_zero_region
 	return 0;
@@ -266,12 +310,7 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 
 void
 as_zero_region(paddr_t paddr, unsigned int npages) {
-	// Avoid warnings
-	(void)paddr;
-	(void)npages;
-
-	// TLB
-	//bzero(&paddr, npages * PAGE_SIZE);
+	bzero((uint32_t*)paddr, npages * PAGE_SIZE);
 }
 
 int
@@ -295,6 +334,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	int result = 0;
 	int ret = 0;
 	uint32_t a, b, c, d;
+	_Bool inMemory = false;
 	switch (faulttype) {
 	    case VM_FAULT_READONLY:
 		/* We always create pages read-write, so we can't get this */
@@ -351,8 +391,44 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
 					return 0;
 					
-				} else {
-					DEBUG(DB_VM, "TLB Miss and No PageTable Valid Entry found.\n");
+				} else if (is_dataSegment(faultaddress, as)) {
+					// Trying to read from a data segment which is not in RAM
+					
+					// we should check if it is in disk memory
+					/* inMemory = is_inMemory(fauladdress, pid) */
+					(void)(inMemory);
+
+					b = as->processPageTable_INFO->data_vaddr & PAGE_FRAME ;
+					d = (faultaddress - b) >> 12;
+					a = as->processPageTable_INFO->data_entries;
+					c = (d%a);
+
+					for (unsigned int i = 0; i < (as->as_npages_data/as->processPageTable_INFO->data_entries); i++) {
+						ret = pageSearch(b + c*PAGE_SIZE + i*(a*PAGE_SIZE));
+						if (ret != noEntryFound) {
+							// before freeing the page from the memory, we should save it?
+							if(free_kpages((vaddr_t)(main_PG[ret].page_number)*PAGE_SIZE)) {
+								return EINVAL;
+							}
+							break;
+						} else {
+							continue;
+						}
+					}
+
+					result = alloc_kpages(1, faultaddress);
+
+					if (result == 0) {
+						return EINVAL;
+					}
+
+					if (addTLB(faultaddress, result)) {
+						return EINVAL;
+					}
+
+					// we should load from disk?	
+					return 0;
+					
 					return EINVAL;
 				}
 				return EINVAL;
@@ -361,8 +437,48 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	    case VM_FAULT_WRITE:
 			ret = pageSearch(faultaddress);
 			if (ret < 0) {
-				DEBUG(DB_VM, "Something went wrong with address 0x%x", 
-					faultaddress);
+				// vAddress not loaded in the RAM Page Table
+				if (is_codeSegment(faultaddress, as)) {
+					panic ("You cannot write 0x%x, is a code segment.\n", faultaddress);
+				}
+				if (is_dataSegment(faultaddress, as)) {
+					// Trying to write in a data segment which is not in RAM
+					
+					// we should check if it is in disk memory
+					/* inMemory = is_inMemory(fauladdress, pid) */
+					(void)(inMemory);
+
+					b = as->processPageTable_INFO->data_vaddr & PAGE_FRAME ;
+					d = (faultaddress - b) >> 12;
+					a = as->processPageTable_INFO->data_entries;
+					c = (d%a);
+
+					for (unsigned int i = 0; i < (as->as_npages_data/as->processPageTable_INFO->data_entries); i++) {
+						ret = pageSearch(b + c*PAGE_SIZE + i*(a*PAGE_SIZE));
+						if (ret != noEntryFound) {
+							// before freeing the page from the memory, we should save it?
+							if(free_kpages((vaddr_t)(main_PG[ret].page_number)*PAGE_SIZE)) {
+								return EINVAL;
+							}
+							break;
+						} else {
+							continue;
+						}
+					}
+
+					result = alloc_kpages(1, faultaddress);
+
+					if (result == 0) {
+						return EINVAL;
+					}
+
+					if (addTLB(faultaddress, result)) {
+						return EINVAL;
+					}
+
+					// we should load from disk?	
+					return 0;
+				}
 				return 1;
 			}
 			

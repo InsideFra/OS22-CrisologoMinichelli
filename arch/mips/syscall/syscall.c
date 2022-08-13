@@ -110,23 +110,24 @@ syscall(struct trapframe *tf)
 		break;
 
 		case SYS_write:
-			// retval = sys_write((int) tf->tf_a0, (const void *) tf->tf_a1,
-			// 		(size_t) tf->tf_a2, (size_t) tf->tf_a2);
-			// if (retval < 0)
-			// 	err = -retval;
-			// else
-			// 	err = 0;
-			DEBUG(DB_VM,"Syscall: write(%d,%x,%d)\n",(unsigned int) tf->tf_a0,(int) tf->tf_a1,(unsigned int) tf->tf_a2);
+			/*DEBUG(DB_VM,"Syscall: write(%d, %s, %d, %d)\n",
+				(unsigned int) tf->tf_a0,
+				(char*) tf->tf_a1,
+				(unsigned int) tf->tf_a2,
+				(unsigned int) tf->tf_a3); */
+			kprintf("[%d] %s", tf->tf_a0, (char*) tf->tf_a1);
 			err = 0;
 		break;
 
 		case SYS_read:
-			DEBUG(DB_VM,"Syscall: read(%d,%x,%d)\n",(unsigned int) tf->tf_a0,(int) tf->tf_a1,(unsigned int) tf->tf_a2);
+			DEBUG(DB_VM,"Syscall: read(%d,%x,%d)\n",
+				(unsigned int) tf->tf_a0,(int) tf->tf_a1,(unsigned int) tf->tf_a2);
 			err = 0;
 		break;
 		case SYS__exit:
 			sys__exit(1);
-			DEBUG(DB_VM,"Syscall: exit(%d)\n",(unsigned int) tf->tf_a0);
+			DEBUG(DB_VM,"Syscall: exit(%d)\n",
+				(unsigned int) tf->tf_a0);
 			err = 0;
 		break;
 
@@ -137,7 +138,6 @@ syscall(struct trapframe *tf)
 		err = ENOSYS;
 		break;
 	}
-
 
 	if (err) {
 		/*

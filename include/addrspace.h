@@ -145,6 +145,7 @@ void              as_zero_region(paddr_t paddr, unsigned int npages);
 int load_elf(struct vnode *v, vaddr_t *entrypoint, vaddr_t start, uint32_t npages);
 
 int is_codeSegment(vaddr_t vaddr, struct addrspace *as);
+int is_dataSegment(vaddr_t vaddr, struct addrspace* as); 
 
 
 #endif /* _ADDRSPACE_H_ */

@@ -22,6 +22,9 @@
         "stop_token": "c",
         "streambuf": "c",
         "file.h": "c",
-        "test.h": "c"
+        "test.h": "c",
+        "addrspace.h": "c",
+        "array": "c",
+        "cstdio": "c"
     }
 }
