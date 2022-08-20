@@ -448,6 +448,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 					/* inMemory = is_inMemory(fauladdress, pid) */
 					(void)(inMemory);
 
+					// TODO #12
 					b = as->processPageTable_INFO->data_vaddr & PAGE_FRAME ;
 					d = (faultaddress - b) >> 12;
 					a = as->processPageTable_INFO->data_entries;
