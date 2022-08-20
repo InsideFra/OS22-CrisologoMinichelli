@@ -115,7 +115,7 @@ syscall(struct trapframe *tf)
 				(char*) tf->tf_a1,
 				(unsigned int) tf->tf_a2,
 				(unsigned int) tf->tf_a3); */
-			kprintf("[%d] %s", tf->tf_a0, (char*) tf->tf_a1);
+			kprintf("%s", (char*) tf->tf_a1);
 			err = 0;
 		break;
 

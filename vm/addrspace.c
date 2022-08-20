@@ -143,8 +143,8 @@ as_deactivate(void)
  * want to implement them.
  */
 int
-as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
-		 int readable, int writeable, int executable)
+as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize, 
+					int readable, int writeable, int executable) 
 {
 	if (executable) {
 		// We are now loading a CODE segment

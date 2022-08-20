@@ -39,11 +39,12 @@
 #include <mainbus.h>
 #include <vfs.h>          // for vfs_sync()
 #include <lamebus/ltrace.h> // for ltrace_stop()
+#include <kern/reboot.h>
 
 
 /* Flags word for DEBUG() macro. */
-//uint32_t dbflags = DB_VM;
-uint32_t dbflags;
+uint32_t dbflags = DB_VM;
+//uint32_t dbflags;
 
 /* Lock for non-polled kprintfs */
 static struct lock *kprintf_lock;
@@ -208,12 +209,19 @@ panic(const char *fmt, ...)
 	for (;;);
 }
 
+extern
+int
+cmd_quit(int nargs, char **args);
+
 /*
  * Assertion failures go through this.
  */
 void
 badassert(const char *expr, const char *file, int line, const char *func)
 {
+	//cmd_quit(1, (char**)1);
+	mainbus_panic();
 	panic("Assertion failed: %s, at %s:%d (%s)\n",
 	      expr, file, line, func);
+	
 }

@@ -1,6 +1,3 @@
-// Low-level implementation of a page-table
-// The first implementation is made with a 1-level page table.
-
 #include <types.h>
 #include <vm.h>
 #include <spinlock.h>
@@ -11,15 +8,12 @@
 #include <test.h>
 #include <addrspace.h>
 
-// You can find information in the vm.h include file
-
 static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
-// We need to divide the physiical memory into fixed-sized blocks called FRAMES
-// Divide logical memory into blocks of same size called pages
-// Keep track of all free frames
-// To run a program of size N pages, need to find N free frames and load program
-// SET UP A PAGE TABLE to translate logical to physical addresses
 
+// We need to divide the physiical memory into fixed-sized blocks called FRAMES
+// Divide logical memory into blocks of same size called PAGES
+// Keep track of all free frames
+// SET UP A PAGE TABLE to translate logical to physical addresses
 struct RAM_PG_ (*main_PG) = NULL;
 
 /**
@@ -168,7 +162,7 @@ pageSearch(vaddr_t addr) {
     }
 
     if (valid_pages == 0) {
-        DEBUG(DB_VM, "(pageSearc): No Entry Found - 0x%x\n", addr);
+        //DEBUG(DB_VM, "(pageSearc): No Entry Found - 0x%x\n", addr);
         return noEntryFound;
     } else {
         // DEBUG
@@ -183,7 +177,7 @@ pageSearch(vaddr_t addr) {
 
         return first_valid;        
     }
-    DEBUG(DB_VM, "(pageSearc): No Entry Found - 0x%x\n", addr);
+    //DEBUG(DB_VM, "(pageSearc): No Entry Found - 0x%x\n", addr);
     return noEntryFound;
 }
 
