@@ -26,6 +26,7 @@
         "addrspace.h": "c",
         "array": "c",
         "cstdio": "c",
-        "vnode.h": "c"
+        "vnode.h": "c",
+        "clock.h": "c"
     }
 }

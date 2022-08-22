@@ -27,38 +27,42 @@ unsigned int PAGETABLE_ENTRY;
 
 // inverted page table
 struct RAM_PG_ {
-    uint32_t Valid;
-    uint32_t pid;
-    uint32_t page_number;
-};
-
-struct PG_ {
-    _Bool Valid;
-    uint32_t frame_number;
-};
-
-struct DISK_PG_ {
-    _Bool Valid;
-    uint32_t frame_number;
-    uint32_t page_number;
-};
-
-struct process_PG {
     _Bool CachingDisabled;
     _Bool Referenced;
     _Bool Modified;
     _Bool Valid;
-    uint8_t pagenumber;
-    uint8_t Protection;
-    uint32_t frame_number;
+    uint32_t clock;
+    uint32_t pid;
+    uint32_t page_number;
 };
+
+// struct PG_ {
+//     _Bool Valid;
+//     uint32_t frame_number;
+// };
+
+// struct DISK_PG_ {
+//     _Bool Valid;
+//     uint32_t frame_number;
+//     uint32_t page_number;
+// };
+
+// struct process_PG {
+//     _Bool CachingDisabled;
+//     _Bool Referenced;
+//     _Bool Modified;
+//     _Bool Valid;
+//     uint8_t pagenumber;
+//     uint8_t Protection;
+//     uint32_t frame_number;
+// };
 
 
 // this struct should be at the top of process_PG
 struct PG_Info {
-    vaddr_t code_vaddr;
+    vaddr_t  code_vaddr;
     uint8_t  code_entries;
-    vaddr_t data_vaddr;
+    vaddr_t  data_vaddr;
     uint8_t  data_entries;
     uint8_t  heap_entries;
     uint8_t  stack_entries;

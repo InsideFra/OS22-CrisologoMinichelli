@@ -404,16 +404,16 @@ free_pages(vaddr_t addr)
 	(void)addr;
 }
 
-int update_process_PG(struct process_PG* pPage, struct process_PG* data) {
-    for (unsigned int i = 0; i < Process_PG_ENTRY; i++) {
-        if (pPage[i].Valid == 0) {
-            data->Valid = 1;
-            memcpy((pPage + i*sizeof(struct process_PG)), data, sizeof(struct process_PG));
-            return 0;
-        } else {
-            continue;
-        }
-    }
-    return 1;
-}
+// int update_process_PG(struct process_PG* pPage, struct process_PG* data) {
+//     for (unsigned int i = 0; i < Process_PG_ENTRY; i++) {
+//         if (pPage[i].Valid == 0) {
+//             data->Valid = 1;
+//             memcpy((pPage + i*sizeof(struct process_PG)), data, sizeof(struct process_PG));
+//             return 0;
+//         } else {
+//             continue;
+//         }
+//     }
+//     return 1;
+// }
 

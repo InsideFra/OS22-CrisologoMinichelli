@@ -67,7 +67,7 @@ void free_pages(vaddr_t addr);
 
 vaddr_t getppages(unsigned int npages);
 void DROP_PG(unsigned int interval);
-int update_process_PG(struct process_PG* pPage, struct process_PG* data);
+//int update_process_PG(struct process_PG* pPage, struct process_PG* data);
 int pageSearch(vaddr_t addr);
 int addTLB(vaddr_t vaddr, paddr_t paddr);
 int removeTLB(vaddr_t vaddr);

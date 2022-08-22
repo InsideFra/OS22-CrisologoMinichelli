@@ -52,7 +52,7 @@ struct addrspace *
 as_create(void)
 {
 	struct addrspace *as = kmalloc(sizeof (struct addrspace));
-	struct process_PG *p_PG = kmalloc(Process_PG_ENTRY*(sizeof(struct process_PG)));
+	//struct process_PG *p_PG = kmalloc(Process_PG_ENTRY*(sizeof(struct process_PG)));
 	struct PG_Info *p_PG_Info = kmalloc(sizeof (struct PG_Info));  
 	
 	//DROP_PG(1);
@@ -71,7 +71,7 @@ as_create(void)
 	as->as_vbase_stack = 0;  // will be set later
 	as->as_npages_stack = 1; // fixed for now
 
-	as->processPageTable = p_PG;
+	//as->processPageTable = p_PG;
 	as->processPageTable_INFO = p_PG_Info;
 
 	return as;
@@ -172,23 +172,24 @@ as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize,
 				panic("Error during memory allocation. See alloc_kpages called by as_define_region.\n");
 			}
 
-			if (as->as_pbase_code == 0)
-				as->as_pbase_code = addr; 			// We store the first physical address, but i think this is useless?
-
+			if (as->as_pbase_code == 0) {
+				// We store the first physical address, but i think this is useless?
+				as->as_pbase_code = addr;	
+			}
 			/* Process Page */
 			/* not fully implemented yet */
-			struct process_PG pPage = {0};
-			pPage.Protection = (1 << 2) | (0 << 1) | (1 << 0); // RWE
-			pPage.CachingDisabled = 1;
-			pPage.frame_number = addr/PAGE_SIZE;
-			pPage.Modified = 0;
-			pPage.pagenumber = as->as_vbase_code/PAGE_SIZE;
-			pPage.Referenced = 0;
-			pPage.Valid = 1;
+			// struct process_PG pPage = {0};
+			// pPage.Protection = (1 << 2) | (0 << 1) | (1 << 0); // RWE
+			// pPage.CachingDisabled = 1;
+			// pPage.frame_number = addr/PAGE_SIZE;
+			// pPage.Modified = 0;
+			// pPage.pagenumber = as->as_vbase_code/PAGE_SIZE;
+			// pPage.Referenced = 0;
+			// pPage.Valid = 1;
 
-			if (update_process_PG(as->processPageTable, &pPage)) {
-				panic("Generic VM Error\n");
-			}
+			// if (update_process_PG(as->processPageTable, &pPage)) {
+			// 	panic("Generic VM Error\n");
+			// }
 			/* End Process Page */
 
 			// Update TLB??
@@ -232,28 +233,30 @@ as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize,
 					panic("Error during memory allocation. See alloc_kpages called by as_define_region.\n");
 				}
 
-				if (as->as_pbase_data == 0)
-					as->as_pbase_data = addr; 			// We store the first physical address, but i think this is useless?
+				if (as->as_pbase_data == 0) {
+					// We store the first physical address, but i think this is useless?
+					as->as_pbase_data = addr;
+				}
 
 				/* Process Page */
 				/* not fully implemented yet */
-				struct process_PG pPage = {0};
-				pPage.Protection = (1 << 2) | (0 << 1) | (1 << 0); // RWE
-				pPage.CachingDisabled = 1;
-				pPage.frame_number = addr/PAGE_SIZE;
-				pPage.Modified = 0;
-				pPage.pagenumber = as->as_vbase_data/PAGE_SIZE;
-				pPage.Referenced = 0;
-				pPage.Valid = 1;
+				// struct process_PG pPage = {0};
+				// pPage.Protection = (1 << 2) | (0 << 1) | (1 << 0); // RWE
+				// pPage.CachingDisabled = 1;
+				// pPage.frame_number = addr/PAGE_SIZE;
+				// pPage.Modified = 0;
+				// pPage.pagenumber = as->as_vbase_data/PAGE_SIZE;
+				// pPage.Referenced = 0;
+				// pPage.Valid = 1;
 
-				if (update_process_PG(as->processPageTable, &pPage)) {
-					panic("Generic VM Error\n");
-				}
+				// if (update_process_PG(as->processPageTable, &pPage)) {
+				// 	panic("Generic VM Error\n");
+				// }
 				/* End Process Page */
 
 				// Update TLB??
 				DEBUG(DB_VM, "DATA SEGMENT: ");
-				addTLB(as->as_vbase_data+i*PAGE_SIZE, addr);
+					addTLB(as->as_vbase_data+i*PAGE_SIZE, addr);
 			}
 			return 0;
 		}
