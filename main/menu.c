@@ -822,7 +822,7 @@ menu(char *args)
 	// Losing time for sync
 	// Can be done better
 	int result = 0;
-	for (unsigned int i = 0; i < 0x00000FFF; i++) {
+	for (unsigned int i = 0; i < 0x0000FFFF; i++) {
 		result += i*i;
 	}
 

@@ -105,21 +105,17 @@ free_kpages(vaddr_t addr)
                 frame_list->next_item = NULL;
             } else {
                 currentFrame = frame_list;
-                //while(1) {
-                    unsigned int bufferPointer = currentFrame->next_item;
-                    /*if (currentFrame->next_item != NULL) {
-                        currentFrame = currentFrame->next_item;
-                        continue;
-                    }*/
-                    currentFrame->next_item = (struct frame_list_struct*)kmalloc(sizeof(struct frame_list_struct));
-                    if (currentFrame->next_item != NULL) {
-                        currentFrame = currentFrame->next_item;
-                        currentFrame->frame_number = page_index;
-                        currentFrame->next_item = bufferPointer;
-                    } else {
-                        panic ("Error in free_kpages");
-                    }
-                //}
+
+                struct frame_list_struct* bufferPointer = currentFrame->next_item;
+                currentFrame->next_item = (struct frame_list_struct*)kmalloc(sizeof(struct frame_list_struct));
+                if (currentFrame->next_item != NULL) {
+                    currentFrame = currentFrame->next_item;
+                    currentFrame->frame_number = page_index;
+                    currentFrame->next_item = bufferPointer;
+                } else {
+                    panic ("Error in free_kpages");
+                }
+
             }
 
             return 0;         
