@@ -16,6 +16,8 @@ static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
 // SET UP A PAGE TABLE to translate logical to physical addresses
 struct RAM_PG_ (*main_PG) = NULL;
 
+struct frame_list_struct (*frame_list) = NULL;
+
 /**
 * Allocate/free some kernel-space virtual pages
 * @param npages How many pages to alloc
@@ -76,6 +78,16 @@ free_kpages(vaddr_t addr)
     if (valid_pages == false) {
         return 1;
     } else {
+            /* DEBUG */
+            char toPass = (char)(page_index); 
+            char* ptrPass;
+            char** ptrPass2;
+
+            ptrPass2 = &ptrPass;
+            ptrPass = &toPass;
+                
+            view_pagetable(3, ptrPass2);
+            /* DEBUG */
             main_PG[page_index].Valid = 0;
             main_PG[page_index].pid = 0;
             main_PG[page_index].page_number = 0;
@@ -86,15 +98,29 @@ free_kpages(vaddr_t addr)
 
             as_zero_region(PADDR_TO_KVADDR(page_index << 12), 1);
 
-            // DEBUG
-            char toPass = (char)(page_index); 
-            char* ptrPass;
-            char** ptrPass2;
-
-            ptrPass2 = &ptrPass;
-            ptrPass = &toPass;
-                
-            view_pagetable(3, ptrPass2);
+            struct frame_list_struct* currentFrame = NULL;
+            if (frame_list == NULL) {
+                frame_list = (struct frame_list_struct*)kmalloc(sizeof(struct frame_list_struct));
+                frame_list->frame_number = page_index;
+                frame_list->next_item = NULL;
+            } else {
+                currentFrame = frame_list;
+                //while(1) {
+                    unsigned int bufferPointer = currentFrame->next_item;
+                    /*if (currentFrame->next_item != NULL) {
+                        currentFrame = currentFrame->next_item;
+                        continue;
+                    }*/
+                    currentFrame->next_item = (struct frame_list_struct*)kmalloc(sizeof(struct frame_list_struct));
+                    if (currentFrame->next_item != NULL) {
+                        currentFrame = currentFrame->next_item;
+                        currentFrame->frame_number = page_index;
+                        currentFrame->next_item = bufferPointer;
+                    } else {
+                        panic ("Error in free_kpages");
+                    }
+                //}
+            }
 
             return 0;         
     }
@@ -149,33 +175,31 @@ is_dataSegment(vaddr_t vaddr, struct addrspace* as) {
 */
 int
 pageSearch(vaddr_t addr) {
-    unsigned int first_valid = 0;
-    _Bool valid_pages = 0;
+    unsigned int    index = 0;
+    _Bool           found = 0;
+
     for(unsigned int i = 0; i < PAGETABLE_ENTRY; i++) {
-        if (main_PG[i].Valid == 1 && main_PG[i].page_number == addr/PAGE_SIZE) {
-            first_valid = i;
-            valid_pages = 1;
+        if (main_PG[i].Valid == 1 && main_PG[i].page_number == (addr/PAGE_SIZE)) {
+            found = 1;
+            index = i;
             break;
-        } else {
-            continue;
         }
     }
 
-    if (valid_pages == 0) {
+    if (found == 0) {
         //DEBUG(DB_VM, "(pageSearc): No Entry Found - 0x%x\n", addr);
         return noEntryFound;
     } else {
-        // DEBUG
-        char toPass = (char)(first_valid); 
+        /* DEBUG */
+        char toPass = (char)(index); 
         char* ptrPass;
         char** ptrPass2;
-
         ptrPass2 = &ptrPass;
         ptrPass = &toPass;
-            
         view_pagetable(2, ptrPass2);
+        /* END DEBUG */
 
-        return first_valid;        
+        return index;        
     }
     //DEBUG(DB_VM, "(pageSearc): No Entry Found - 0x%x\n", addr);
     return noEntryFound;
@@ -279,65 +303,65 @@ removeTLB(vaddr_t vaddr) {
 vaddr_t
 alloc_pages(unsigned npages, vaddr_t as_vbase)
 {
-    paddr_t addr = 0, return_addr = 0;    
-        for (unsigned int i = 0; i < npages; i++) {
-            // Find space in physical memory ram through the use of the Page Table
-            unsigned int first_valid = 0;
-            unsigned int buffer_npages = npages;
-            _Bool valid_pages = 0;
-
-            for(unsigned int i = 0; i < PAGETABLE_ENTRY; i++) {
-                if (buffer_npages != 0) {
-                    if (main_PG[i].Valid == 0) {
-                        first_valid = (buffer_npages == npages ? i : first_valid);
-                        buffer_npages--;
-                        if (buffer_npages == 0) {
-                            valid_pages = 1;
-                            break;
-                        }   
-                    } else {
-                        if (buffer_npages != npages) {
-                            first_valid = 0;
-                            valid_pages = 0;
-                            buffer_npages = npages;
-                        }
-                    }
-                }
-            }
-
-            if (valid_pages == 0) {
-                // TODO #6
-            } else {
-                // TODO #7
-                for (unsigned int i = 0; i < npages; i++) {
-                    main_PG[first_valid+i].Valid = 1;
-                    if (return_addr == 0) {
-                        addr = (first_valid+i)*4096;
-                        if (addr >= (paddr_t)main_PG - MIPS_KSEG0) {
-                            panic("You're trying to write over the PG");
-                        }
-                        if (addr==0) { 
-                            return 0; 
-                        }
-                        return_addr = addr; 
-                    }
-                    main_PG[first_valid+i].page_number = as_vbase/PAGE_SIZE;
-
-                    // DEBUG
-                    char toPass = (char)(first_valid+i); 
-                    char* ptrPass;
-                    char** ptrPass2;
-
-                    ptrPass2 = &ptrPass;
-                    ptrPass = &toPass;
-                     
-                    view_pagetable(1, ptrPass2);
-                }
-                        
-            }
-            return PADDR_TO_KVADDR(return_addr);
-        }
+    paddr_t addr = 0, return_addr = 0;
+    struct frame_list_struct* currentFrame;
+    uint8_t FIFOSize = 0;
+    
+    // Find space in physical memory ram through the use of the Frame List FIFO
+    currentFrame = frame_list;
+    if (currentFrame == NULL) {
+        panic ("Error in alloc_pages");
         return 0;
+    }
+    FIFOSize = 1;
+    for (unsigned int p = 1; p < npages; p++) {
+        if (currentFrame->next_item == NULL) {
+            break;
+        }
+        FIFOSize++;
+    }
+
+    uint8_t index = 0;
+    if (FIFOSize == npages) {
+        for (unsigned int p = 0; p < npages; p++) {
+            currentFrame = frame_list;
+            index = currentFrame->frame_number;
+            main_PG[index].Valid = 1;
+            main_PG[index].page_number = (as_vbase + p) >> 12;
+            if (return_addr == 0) {
+                addr = (index)*4096;
+                if (addr >= (paddr_t)main_PG - MIPS_KSEG0) {
+                    panic("You're trying to write over the PG");
+                }
+                if (addr==0) {
+                    panic("Error in alloc_pages"); 
+                    return 0; 
+                }
+                return_addr = addr; 
+            }
+            struct frame_list_struct* deleteFrame;
+            deleteFrame = currentFrame;
+            frame_list = currentFrame->next_item;
+            
+            /* DEBUG */
+            char toPass = (char)(currentFrame->frame_number); 
+            char* ptrPass;
+            char** ptrPass2;
+
+            ptrPass2 = &ptrPass;
+            ptrPass = &toPass;
+    
+            view_pagetable(1, ptrPass2);
+            /* DEBUG */
+
+            kfree(deleteFrame);
+        }
+    } else {
+        // TODO #6
+        panic ("Error in alloc_pages");
+        return 0;
+    }
+    return PADDR_TO_KVADDR(return_addr);
 }
 
 int view_pagetable(int nargs, char **args) {

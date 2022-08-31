@@ -41,6 +41,7 @@
 #include <vfs.h>
 
 extern struct RAM_PG_ *main_PG;
+extern struct frame_list_struct (*frame_list);
 
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM
@@ -511,6 +512,8 @@ vm_bootstrap(void)
 {
 	vaddr_t location;
 
+	unsigned int free_pages_number = 0;
+
 	PAGETABLE_ENTRY = ram_getsize()/PAGE_SIZE;
 
     location = ram_getsize() - (PAGETABLE_ENTRY * PTLR);
@@ -526,8 +529,10 @@ vm_bootstrap(void)
 	DEBUG(DB_VM, "VM: %uk physical memory available after VM boot\n", 
 			location - ram_getfirstaddr());
 	
+	free_pages_number = (location - ram_getfirstaddr())/PAGE_SIZE;
+	
 	DEBUG(DB_VM, "VM: %u free pages\n", 
-		(location - ram_getfirstaddr())/PAGE_SIZE);
+		free_pages_number);
 
 	DEBUG(DB_VM, "VM: %u pages used by the kernel\n", 
 		(ram_getfirstaddr())/PAGE_SIZE);
@@ -551,6 +556,44 @@ vm_bootstrap(void)
 		main_PG[127-i].page_number = 0;
 		main_PG[127-i].pid = 1;
 		main_PG[127-i].Valid = 1;
+	}
+
+	// User Memory
+	for(unsigned int i = ram_getfirstaddr()/PAGE_SIZE; i < free_pages_number; i++) {
+		main_PG[i].page_number = 0;
+		main_PG[i].pid = 0;
+		main_PG[i].Valid = 0;
+		struct frame_list_struct* currentFrame = NULL;
+		for (unsigned int p = 0; p < free_pages_number; p++) {
+			if (frame_list == NULL) {
+				// Add first element to the frame list
+				frame_list = (struct frame_list_struct*)kmalloc(sizeof(struct frame_list_struct));
+				if (frame_list == NULL) {
+					// Error while allocating frame list
+					panic("Error (1), see debugger");
+				}
+				frame_list->frame_number = i;
+				break;
+ 			} else {
+				if (currentFrame == NULL) {
+					currentFrame = frame_list;
+				}
+				if (currentFrame->next_item != NULL) {
+					currentFrame = currentFrame->next_item;
+					continue;
+				}
+				
+				currentFrame->next_item = (struct frame_list_struct*)kmalloc(sizeof(struct frame_list_struct));
+				if (currentFrame->next_item == NULL) {
+					// Error while allocating frame list
+					panic("Error (2), see debugger");
+				}
+
+				currentFrame = currentFrame->next_item;
+				currentFrame->frame_number = i;
+				break;
+			}
+		}
 	}
 
 	// TLB

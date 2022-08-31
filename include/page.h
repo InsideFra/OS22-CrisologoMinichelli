@@ -36,6 +36,11 @@ struct RAM_PG_ {
     uint32_t page_number;
 };
 
+struct frame_list_struct {
+    unsigned int frame_number;
+    struct frame_list_struct* next_item;
+};
+
 // struct PG_ {
 //     _Bool Valid;
 //     uint32_t frame_number;

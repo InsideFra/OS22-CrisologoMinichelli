@@ -8,7 +8,7 @@ Makefile:11: *** missing separator.  Stop.
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Mon Aug 22 18:06:32 2022
+# Make data base, printed on Wed Aug 24 19:21:29 2022
 
 # Variables
 
@@ -89,7 +89,7 @@ MAKEFILE_LIST := Makefile
 # automatic
 @F = $(notdir $@)
 # environment
-VSCODE_PID = 3424
+VSCODE_PID = 56352
 # environment
 XDG_SESSION_TYPE = x11
 # automatic
@@ -135,7 +135,7 @@ LC_MONETARY = en_US.UTF-8
 # environment
 LC_TIME = en_US.UTF-8
 # environment
-INVOCATION_ID = d0bb8ae85aa64ba2931ad55105724f66
+INVOCATION_ID = 6f3efe3e1add452995629a0dbe87b518
 # environment
 USERNAME = francesco
 # environment
@@ -163,7 +163,7 @@ GIO_LAUNCHED_DESKTOP_FILE = /usr/share/applications/code.desktop
 # makefile
 .DEFAULT_GOAL := 
 # environment
-SYSTEMD_EXEC_PID = 1583
+SYSTEMD_EXEC_PID = 1554
 # environment
 DISPLAY = :0
 # environment
@@ -173,11 +173,11 @@ GTK_MODULES = gail:atk-bridge
 # default
 MAKE_VERSION := 4.3
 # environment
-MANAGERPID = 1202
+MANAGERPID = 1178
 # environment
 LC_MEASUREMENT = en_US.UTF-8
 # environment
-GIO_LAUNCHED_DESKTOP_FILE_PID = 3424
+GIO_LAUNCHED_DESKTOP_FILE_PID = 56352
 # environment
 _ = /usr/share/code/code
 # environment
@@ -187,7 +187,7 @@ XDG_RUNTIME_DIR = /run/user/1000
 # environment
 GPG_AGENT_INFO = /run/user/1000/gnupg/S.gpg-agent:0:1
 # environment
-JOURNAL_STREAM = 8:26530
+JOURNAL_STREAM = 8:30244
 # environment
 XDG_SESSION_CLASS = user
 # environment
@@ -272,6 +272,6 @@ all:
 # strcache performance: lookups = 34 / hit rate = 11%
 # hash-table stats:
 # Load=30/8192=0%, Rehash=0, Collisions=0/34=0%
-# Finished Make data base on Mon Aug 22 18:06:32 2022
+# Finished Make data base on Wed Aug 24 19:21:29 2022
 
  

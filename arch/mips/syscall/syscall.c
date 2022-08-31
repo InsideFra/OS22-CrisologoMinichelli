@@ -99,6 +99,11 @@ syscall(struct trapframe *tf)
 
 	retval = 0;
 
+	int fd;
+	char *buf;
+	int size;
+	int i;
+
 	switch (callno) {
 	    case SYS_reboot:
 		err = sys_reboot(tf->tf_a0);
@@ -110,18 +115,47 @@ syscall(struct trapframe *tf)
 		break;
 
 		case SYS_write:
-			/*DEBUG(DB_VM,"Syscall: write(%d, %s, %d, %d)\n",
-				(unsigned int) tf->tf_a0,
-				(char*) tf->tf_a1,
-				(unsigned int) tf->tf_a2,
-				(unsigned int) tf->tf_a3); */
-			kprintf("%s", (char*) tf->tf_a1);
+			// tf->tf_a0 is the first parameter 	(int fd)
+			// tf->tf_a1 is the second parameter 	(char *buf)
+			// tf->tf_a2 is the third parameter 	(int size)
+			// tf->tf_v0 is the return value
+			fd = tf->tf_a0;
+			if (fd == 1) {
+				// Standard output
+				// Use kprintf for user printf is NOT a good idea.
+				buf = (char*)tf->tf_a1;
+				size = (int)tf->tf_a2;
+				for (i = 0; i < size; i++) {
+					kprintf("%c", *(buf++));
+				}
+				tf->tf_v0 = size;
+			}
+			else if (fd == 2) {
+				// Standard error
+				buf = (char*)tf->tf_a1;
+				size = (int)tf->tf_a2;
+				for (i = 0; i < size; i++) {
+					kprintf("%c", *(buf++));
+				}
+				tf->tf_v0 = size;
+			}
 			err = 0;
 		break;
 
 		case SYS_read:
-			DEBUG(DB_VM,"Syscall: read(%d,%x,%d)\n",
-				(unsigned int) tf->tf_a0,(int) tf->tf_a1,(unsigned int) tf->tf_a2);
+			// tf->tf_a0 is the first parameter 	(int fd)
+			// tf->tf_a1 is the second parameter 	(char *buf)
+			// tf->tf_a2 is the third parameter 	(int size)
+			// tf->tf_v0 is the return value
+			fd = tf->tf_a0;
+			if (fd == 0) {
+				// Standard input
+				// Use kgets for user printf is NOT a good idea.
+				buf = (char*)tf->tf_a1;
+				size = (int)tf->tf_a2;
+				kgets(buf, size);
+				tf->tf_v0 = size;
+			}
 			err = 0;
 		break;
 		case SYS__exit:

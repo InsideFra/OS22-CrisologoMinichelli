@@ -819,6 +819,13 @@ menu(char *args)
 {
 	char buf[64];
 
+	// Losing time for sync
+	// Can be done better
+	int result = 0;
+	for (unsigned int i = 0; i < 0x00000FFF; i++) {
+		result += i*i;
+	}
+
 	menu_execute(args, 1);
 
 	while (1) {
