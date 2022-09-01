@@ -6,7 +6,7 @@
         {
             "label": "Copy Config",
             "type": "shell",
-            "command": "cp conf/DUMBVM conf/${input:VersionName}",
+            "command": "cp conf/GENERIC conf/${input:VersionName}",
             "problemMatcher": []
         },
         {
