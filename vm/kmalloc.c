@@ -1222,3 +1222,21 @@ kfree(void *ptr)
 	}
 }
 
+/**
+ * Used to allocate physical frame.
+ * @param {uint} npages - Number of frame to allocated.
+ * @return {int} physical address, else 0.
+ */
+vaddr_t alloc_kpages(unsigned npages) {
+	(void)npages;
+	return 0;
+}
+
+/**
+ * Used to free physical frame.
+ * @param {vaddr_t} addr - Number of frame to free.
+ */
+void free_kpages(vaddr_t addr) {
+	(void)addr;
+}
+

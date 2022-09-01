@@ -340,9 +340,17 @@ file      proc/proc.c
 # (you will probably want to add stuff here while doing the VM assignment)
 #
 
-file      vm/kmalloc.c
+file    vm/kmalloc.c
 
-optofffile dumbvm   vm/addrspace.c
+file    vm/coremap.c
+file    vm/pt.c 
+file    vm/segments.c 
+file    vm/swapfile.c 
+file    vm/vm_tlb.c 
+file    vm/vmstats.c
+file    vm/vm.c 
+
+file  vm/addrspace.c
 
 #
 # Network

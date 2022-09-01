@@ -36,7 +36,8 @@
  * You'll probably want to add stuff here.
  */
 
-
+#include <types.h>
+#include <machine/types.h>
 #include <machine/vm.h>
 
 /* Fault-type arguments to vm_fault() */
