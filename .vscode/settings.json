@@ -4,7 +4,10 @@
         "lib.h": "c",
         "opt-noasserts.h": "c",
         "version.h": "c",
-        "vm.h": "c"
+        "vm.h": "c",
+        "types.h": "c",
+        "tlb.h": "c",
+        "vm_tlb.h": "c"
     },
     "C_Cpp.errorSquiggles": "Enabled"
 }

@@ -37,6 +37,8 @@
                 "${env:HOME}/os161/os161-base-2.0.3/userland/include/sys",
                 "${env:HOME}/os161/os161-base-2.0.3/userland/lib/hostcompat",
                 "${env:HOME}/os161/os161-base-2.0.3/common/gcc-millicode",
+                "${env:HOME}/os161/os161-base-2.0.3/kern/compile/v1",
+                "${env:HOME}/os161/os161-base-2.0.3/kern/compile/v1/includelinks",
                 "${env:HOME}/os161/root/hostinclude/kern",
                 "${env:HOME}/os161/root/hostinclude/kern/mips",
                 "${env:HOME}/os161/root/hostinclude/kern/machine",
