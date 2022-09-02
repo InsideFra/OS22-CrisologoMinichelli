@@ -31,6 +31,16 @@
 #include <lib.h>
 #include <spinlock.h>
 #include <vm.h>
+#include <pt.h>
+#include <vm_tlb.h>
+
+extern _Bool VM_Started;
+
+extern struct invertedPT (*main_PG);
+
+extern struct frame_list_struct (*frame_list);
+
+extern unsigned int PAGETABLE_ENTRY;
 
 /*
  * Kernel malloc.
@@ -1223,20 +1233,107 @@ kfree(void *ptr)
 }
 
 /**
- * Used to allocate physical frame.
+ * Used to allocate physical frame to kernel.
  * @param {uint} npages - Number of frame to allocated.
  * @return {int} physical address, else 0.
  */
-vaddr_t alloc_kpages(unsigned npages) {
-	(void)npages;
-	return 0;
+paddr_t alloc_kpages(unsigned npages) {
+	paddr_t addr = 0;
+	spinlock_acquire(&kmalloc_spinlock);
+	
+	if (VM_Started == false) {
+		// VM still not initialized
+		addr = ram_stealmem(npages);
+		if (addr==0) {
+			spinlock_release(&kmalloc_spinlock);
+			panic ("Error in alloc_kpages: Not enough RAM");
+			return 0;
+		}
+		spinlock_release(&kmalloc_spinlock);
+		return PADDR_TO_KVADDR(addr);
+	} else {
+    	struct frame_list_struct* currentFrame;
+    	uint8_t FIFOSize = 0;
+    
+    	// Find space in physical memory ram through the use of the Frame List FIFO
+    	currentFrame = frame_list;
+    	if (currentFrame == NULL) {
+			spinlock_release(&kmalloc_spinlock);
+			panic ("Error in alloc_pages");
+			return 0;
+    	}
+		FIFOSize = 1;
+		for (unsigned int p = 1; p < npages; p++) {
+			if (currentFrame->next_frame == NULL) {
+				break;
+			}
+			FIFOSize++;
+		}
+
+		uint32_t index = 0;
+		if (FIFOSize == npages) {
+			for (unsigned int p = 0; p < npages; p++) {
+				currentFrame = frame_list;
+				index = currentFrame->frame_number;
+				KASSERT(index < PAGETABLE_ENTRY);
+				main_PG[index].Valid = 1;
+				
+				if (addr == 0) {
+					addr = (index)*4096;
+					if (addr >= (paddr_t)main_PG - MIPS_KSEG0) {
+						spinlock_release(&kmalloc_spinlock);
+						panic("You're trying to write over the PG");
+					}
+					if (addr==0) {
+						spinlock_release(&kmalloc_spinlock);
+						panic("Error in alloc_pages"); 
+						return 0; 
+					}
+				}
+
+				struct frame_list_struct* deleteFrame;
+				deleteFrame = currentFrame;
+				frame_list = currentFrame->next_frame;
+				spinlock_release(&kmalloc_spinlock);
+				kfree(deleteFrame);
+				spinlock_acquire(&kmalloc_spinlock);
+			}
+		} else {
+			panic ("Error in alloc_kpages");
+			return 0;
+		}
+		return PADDR_TO_KVADDR(addr);
+	}
+    return PADDR_TO_KVADDR(addr);
 }
 
 /**
  * Used to free physical frame.
- * @param {vaddr_t} addr - Number of frame to free.
+ * @param {paddr_t} The frame physical address to free.
  */
-void free_kpages(vaddr_t addr) {
-	(void)addr;
+void free_kpages(paddr_t paddr) {
+	spinlock_acquire(&kmalloc_spinlock);
+	if (VM_Started == false) {
+		// usually this does not happen
+		spinlock_release(&kmalloc_spinlock);
+		return;
+	}
+
+	uint32_t paddr_align = paddr & PAGE_FRAME; // frame align
+	uint32_t frame_index = paddr_align/PAGE_SIZE; // frame number
+
+	KASSERT(frame_index < PAGETABLE_ENTRY);
+
+    main_PG[frame_index].Valid = 0;
+	main_PG[frame_index].pid = 0;
+	main_PG[frame_index].page_number = 0;
+
+	if (removeTLB(paddr)) {
+		return;
+	}
+
+	memset((void*)paddr, 0, PAGE_SIZE);
+
+	// TODO: remove from frame list      
 }
 
