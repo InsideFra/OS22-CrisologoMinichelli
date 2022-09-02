@@ -53,11 +53,13 @@ void vm_bootstrap(void);
 int vm_fault(int faulttype, vaddr_t faultaddress);
 
 /* Allocate/free kernel heap pages (called by kmalloc/kfree) */
-vaddr_t alloc_kpages(unsigned npages);
-void free_kpages(vaddr_t addr);
+paddr_t alloc_kpages(unsigned npages);
+void free_kpages(paddr_t paddr);
 
 /* TLB shootdown handling called from interprocessor_interrupt */
 void vm_tlbshootdown(const struct tlbshootdown *);
+
+paddr_t alloc_pages(uint8_t npages, vaddr_t vaddr);
 
 
 #endif /* _VM_H_ */

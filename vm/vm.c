@@ -22,13 +22,14 @@ extern struct frame_list_struct (*frame_list);
  */
 void vm_bootstrap(void) {
     vaddr_t location;
-    uint32_t PT_Size = PAGETABLE_ENTRY * PTLR;
+    uint32_t PT_Size = 0;
     uint32_t RAM_Size = ram_getsize();
     uint32_t RAM_FirstFree = ram_getfirstfree();
     struct frame_list_struct* currentFrame = NULL;
 
-
 	PAGETABLE_ENTRY = RAM_Size/PAGE_SIZE;
+	
+	PT_Size = PAGETABLE_ENTRY * PTLR;
 
     location = RAM_Size - (PT_Size);
 
@@ -89,3 +90,17 @@ int vm_fault(int faulttype, vaddr_t faultaddress) {
 void vm_tlbshootdown(const struct tlbshootdown *tlb) {
     (void)tlb;
 };
+
+/**
+ * Used to allocate physical frame to user space.
+ * @param {uint} npages - Number of frame to allocated.
+ * @param {vaddr} The virtual address that has to be mapped with the physical frame
+ * @return 0 if everything ok.
+ */
+paddr_t alloc_pages(uint8_t npages, vaddr_t vaddr) {
+	KASSERT(VM_Started);
+	(void)npages;
+	(void)vaddr;
+	return 0;
+	return 1;
+}
