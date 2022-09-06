@@ -6,6 +6,7 @@
 #include <machine/tlb.h>
 #include <spl.h>
 #include <lib.h>
+#include <list.h>
 
 // This variables indicates if the vm has been initialized
 _Bool VM_Started = false;
@@ -25,8 +26,9 @@ void vm_bootstrap(void) {
     uint32_t PT_Size = 0;
     uint32_t RAM_Size = ram_getsize();
     uint32_t RAM_FirstFree = ram_getfirstfree();
-    struct frame_list_struct* currentFrame = NULL;
 
+	struct frame_list_struct* currentFrame = NULL;
+    
 	PAGETABLE_ENTRY = RAM_Size/PAGE_SIZE;
 	
 	PT_Size = PAGETABLE_ENTRY * PTLR;
@@ -48,15 +50,49 @@ void vm_bootstrap(void) {
 
 	// Memory used by the VM
 	for(uint32_t i = 0; i < (RAM_Size-location)/PAGE_SIZE; i++) {
-		main_PG[127-i].page_number = 0;
-		main_PG[127-i].pid = 1;
-		main_PG[127-i].Valid = 1;
+		main_PG[PAGETABLE_ENTRY-1-i].page_number = 0;
+		main_PG[PAGETABLE_ENTRY-1-i].pid = 0;
+		main_PG[PAGETABLE_ENTRY-1-i].Valid = 1;
 	}
 
-    // TODO
-    // Fill the free frame list
-    // This for goes from the last frame used by the kernel to the first frame used by the VM.
-    (void)currentFrame;
+    for (uint32_t i = (unsigned int)RAM_FirstFree/PAGE_SIZE; i < PAGETABLE_ENTRY - (RAM_Size-location)/PAGE_SIZE; i++) {
+		if(addToFrameList(i, addBOTTOM)) {
+			panic("Error in addToList()");
+		}
+	}
+
+	// DEBUGGINO
+	currentFrame = frame_list;
+	unsigned int i = 0;
+	while(1) {
+		if (frame_list == NULL) {
+			panic("Errore");
+		}
+
+		kprintf("frame_list[%3d]: 0x%x\tframe_list[%3d]->frame_number: %d\tframe_list[%3d]->next_frame: 0x%x\n", 
+			i, (uint32_t)currentFrame, i, currentFrame->frame_number, i, (uint32_t)currentFrame->next_frame);
+
+		i++;
+		if (currentFrame->next_frame == NULL) {
+			break;
+		} else {
+			currentFrame = currentFrame->next_frame;
+		}
+	}
+	kprintf("main_PG: 0x%x\tPageTable_Entries: %d\n", (uint32_t)main_PG, PAGETABLE_ENTRY);
+	for (unsigned int number = 0; number < PAGETABLE_ENTRY; number++) {
+		kprintf("main_PG[%d]\tPN: %x\tpAddr: 0x%x\t-%s-",
+				number, 
+				main_PG[number].page_number, 
+				PADDR_TO_KVADDR(4096*(number)), 
+				main_PG[number].Valid == 1 ? "V" : "N");
+		if (main_PG[number].Valid == 1)
+			kprintf("%s-\t", main_PG[number].pid == 0 ? "KERNEL" : "USER");
+		else 
+			kprintf("\t");
+			
+		kprintf("\n");
+	}
 
 	// TLB invalid fill
 	uint32_t ehi, elo;

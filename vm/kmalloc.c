@@ -1334,6 +1334,6 @@ void free_kpages(paddr_t paddr) {
 
 	memset((void*)paddr, 0, PAGE_SIZE);
 
-	// TODO: remove from frame list      
+	// TODO: remove frame from frame list      
 }
 
