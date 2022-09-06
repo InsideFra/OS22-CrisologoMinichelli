@@ -7,7 +7,8 @@
         "vm.h": "c",
         "types.h": "c",
         "tlb.h": "c",
-        "vm_tlb.h": "c"
+        "vm_tlb.h": "c",
+        "list.h": "c"
     },
     "C_Cpp.errorSquiggles": "Enabled"
 }

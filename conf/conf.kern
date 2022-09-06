@@ -284,6 +284,8 @@ file      lib/misc.c
 file      lib/time.c
 file      lib/uio.c
 
+file      lib/list.c
+
 defoption noasserts
 
 
