@@ -27,8 +27,6 @@ void vm_bootstrap(void) {
     uint32_t RAM_Size = ram_getsize();
     uint32_t RAM_FirstFree = ram_getfirstfree();
 
-	struct frame_list_struct* currentFrame = NULL;
-    
 	PAGETABLE_ENTRY = RAM_Size/PAGE_SIZE;
 	
 	PT_Size = PAGETABLE_ENTRY * PTLR;
@@ -61,38 +59,8 @@ void vm_bootstrap(void) {
 		}
 	}
 
-	// DEBUGGINO
-	currentFrame = frame_list;
-	unsigned int i = 0;
-	while(1) {
-		if (frame_list == NULL) {
-			panic("Errore");
-		}
-
-		kprintf("frame_list[%3d]: 0x%x\tframe_list[%3d]->frame_number: %d\tframe_list[%3d]->next_frame: 0x%x\n", 
-			i, (uint32_t)currentFrame, i, currentFrame->frame_number, i, (uint32_t)currentFrame->next_frame);
-
-		i++;
-		if (currentFrame->next_frame == NULL) {
-			break;
-		} else {
-			currentFrame = currentFrame->next_frame;
-		}
-	}
-	kprintf("main_PG: 0x%x\tPageTable_Entries: %d\n", (uint32_t)main_PG, PAGETABLE_ENTRY);
-	for (unsigned int number = 0; number < PAGETABLE_ENTRY; number++) {
-		kprintf("main_PG[%d]\tPN: %x\tpAddr: 0x%x\t-%s-",
-				number, 
-				main_PG[number].page_number, 
-				PADDR_TO_KVADDR(4096*(number)), 
-				main_PG[number].Valid == 1 ? "V" : "N");
-		if (main_PG[number].Valid == 1)
-			kprintf("%s-\t", main_PG[number].pid == 0 ? "KERNEL" : "USER");
-		else 
-			kprintf("\t");
-			
-		kprintf("\n");
-	}
+	//print_frame_list();
+	//print_page_table();
 
 	// TLB invalid fill
 	uint32_t ehi, elo;
@@ -139,4 +107,54 @@ paddr_t alloc_pages(uint8_t npages, vaddr_t vaddr) {
 	(void)vaddr;
 	return 0;
 	return 1;
+}
+
+/*
+* This method is used to print to the console the current content of the frame list.
+* @author @InsideFra
+* @date 10/09/2022
+*/
+void print_frame_list(void) {
+	struct frame_list_struct* currentFrame = NULL;
+	currentFrame = frame_list;
+	unsigned int counter = 0;
+	
+	while(1) {
+		if (frame_list == NULL) {
+			panic("Errore");
+		}
+
+		kprintf("\nframe_list[%3d]: 0x%x\tframe_list[%3d]->frame_number: %d\tframe_list[%3d]->next_frame: 0x%x", 
+			counter, (uint32_t)currentFrame, counter, currentFrame->frame_number, counter, (uint32_t)currentFrame->next_frame);
+
+		counter++;
+		
+		if (currentFrame->next_frame == NULL) {
+			break;
+		} else {
+			currentFrame = currentFrame->next_frame;
+		}
+	}
+}
+
+/*
+* This method is used to print to the console the current content of the inverted page table.
+* @author @InsideFra
+* @date 10/09/2022
+*/
+void print_page_table(void) {
+	kprintf("main_PG: 0x%x\tPageTable_Entries: %d\n", (uint32_t)main_PG, PAGETABLE_ENTRY);
+	for (unsigned int number = 0; number < PAGETABLE_ENTRY; number++) {
+		kprintf("main_PG[%d]\tPN: %x\tpAddr: 0x%x\t-%s-",
+				number, 
+				main_PG[number].page_number, 
+				PADDR_TO_KVADDR(4096*(number)), 
+				main_PG[number].Valid == 1 ? "V" : "N");
+		if (main_PG[number].Valid == 1)
+			kprintf("%s-\t", main_PG[number].pid == 0 ? "KERNEL" : "USER");
+		else 
+			kprintf("\t");
+			
+		kprintf("\n");
+	}
 }
