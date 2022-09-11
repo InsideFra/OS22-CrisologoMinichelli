@@ -1302,9 +1302,12 @@ paddr_t alloc_kpages(unsigned npages) {
 			panic ("Error in alloc_kpages");
 			return 0;
 		}
+		spinlock_release(&kmalloc_spinlock);
 		return PADDR_TO_KVADDR(addr);
 	}
-    return PADDR_TO_KVADDR(addr);
+	spinlock_release(&kmalloc_spinlock);
+    panic("We should not get here");
+	return 0;
 }
 
 /**
@@ -1320,7 +1323,7 @@ void free_kpages(paddr_t paddr) {
 	}
 
 	uint32_t paddr_align = paddr & PAGE_FRAME; // frame align
-	uint32_t frame_index = paddr_align/PAGE_SIZE; // frame number
+	uint32_t frame_index = (paddr_align-MIPS_KSEG0)/PAGE_SIZE; // frame number
 
 	KASSERT(frame_index < PAGETABLE_ENTRY);
 
@@ -1334,6 +1337,6 @@ void free_kpages(paddr_t paddr) {
 
 	memset((void*)paddr, 0, PAGE_SIZE);
 
-	// TODO: remove frame from frame list      
+	// TODO: add frame to frame list      
 }
 
