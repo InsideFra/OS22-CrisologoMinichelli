@@ -61,5 +61,9 @@ void vm_tlbshootdown(const struct tlbshootdown *);
 
 paddr_t alloc_pages(uint8_t npages, vaddr_t vaddr);
 
+// for debug purpose
+void print_page_table(void);
+void print_frame_list(void);
+
 
 #endif /* _VM_H_ */
