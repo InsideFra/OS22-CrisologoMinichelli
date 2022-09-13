@@ -33,6 +33,7 @@
 #include <vm.h>
 #include <pt.h>
 #include <vm_tlb.h>
+#include <list.h>
 
 extern _Bool VM_Started;
 
@@ -130,24 +131,6 @@ fill_deadbeef(void *vptr, size_t len)
 
 #undef CHECKBEEF
 #undef CHECKGUARDS
-
-////////////////////////////////////////
-
-#if PAGE_SIZE == 4096
-
-#define NSIZES 8
-static const size_t sizes[NSIZES] = { 16, 32, 64, 128, 256, 512, 1024, 2048 };
-
-#define SMALLEST_SUBPAGE_SIZE 16
-#define LARGEST_SUBPAGE_SIZE 2048
-
-#elif PAGE_SIZE == 8192
-#error "No support for 8k pages (yet?)"
-#else
-#error "Odd page size"
-#endif
-
-////////////////////////////////////////
 
 struct freelist {
 	struct freelist *next;
@@ -1239,6 +1222,8 @@ kfree(void *ptr)
  */
 paddr_t alloc_kpages(unsigned npages) {
 	paddr_t addr = 0;
+	uint8_t FIFOSize = 0;
+	struct frame_list_struct* currentFrame;
 	spinlock_acquire(&kmalloc_spinlock);
 	
 	if (VM_Started == false) {
@@ -1251,63 +1236,57 @@ paddr_t alloc_kpages(unsigned npages) {
 		}
 		spinlock_release(&kmalloc_spinlock);
 		return PADDR_TO_KVADDR(addr);
-	} else {
-    	struct frame_list_struct* currentFrame;
-    	uint8_t FIFOSize = 0;
-    
-    	// Find space in physical memory ram through the use of the Frame List FIFO
-    	currentFrame = frame_list;
-    	if (currentFrame == NULL) {
-			spinlock_release(&kmalloc_spinlock);
-			panic ("Error in alloc_pages");
-			return 0;
-    	}
-		FIFOSize = 1;
-		for (unsigned int p = 1; p < npages; p++) {
-			if (currentFrame->next_frame == NULL) {
-				break;
-			}
-			FIFOSize++;
-		}
+	}
 
-		uint32_t index = 0;
-		if (FIFOSize == npages) {
-			for (unsigned int p = 0; p < npages; p++) {
-				currentFrame = frame_list;
-				index = currentFrame->frame_number;
-				KASSERT(index < PAGETABLE_ENTRY);
-				main_PG[index].Valid = 1;
-				
-				if (addr == 0) {
-					addr = (index)*4096;
-					if (addr >= (paddr_t)main_PG - MIPS_KSEG0) {
-						spinlock_release(&kmalloc_spinlock);
-						panic("You're trying to write over the PG");
-					}
-					if (addr==0) {
-						spinlock_release(&kmalloc_spinlock);
-						panic("Error in alloc_pages"); 
-						return 0; 
-					}
-				}
-
-				struct frame_list_struct* deleteFrame;
-				deleteFrame = currentFrame;
-				frame_list = currentFrame->next_frame;
-				spinlock_release(&kmalloc_spinlock);
-				kfree(deleteFrame);
-				spinlock_acquire(&kmalloc_spinlock);
-			}
-		} else {
-			panic ("Error in alloc_kpages");
-			return 0;
-		}
+	// Find space in physical memory ram through the use of the Frame List FIFO
+	currentFrame = frame_list;
+	if (currentFrame == NULL) {
 		spinlock_release(&kmalloc_spinlock);
-		return PADDR_TO_KVADDR(addr);
+		panic ("Error in alloc_pages");
+		return 0;
+	}
+	FIFOSize = 1;
+	for (unsigned int p = 1; p < npages; p++) {
+		if (currentFrame->next_frame == NULL) {
+			break;
+		}
+		FIFOSize++;
+	}
+
+	uint32_t index = 0;
+	if (FIFOSize == npages) {
+		for (unsigned int p = 0; p < npages; p++) {
+			currentFrame = frame_list;
+			index = currentFrame->frame_number;
+			KASSERT(index < PAGETABLE_ENTRY);
+			main_PG[index].Valid = 1;
+			
+			if (addr == 0) {
+				addr = (index)*4096;
+				if (addr >= (paddr_t)main_PG - MIPS_KSEG0) {
+					spinlock_release(&kmalloc_spinlock);
+					panic("You're trying to write over the PG");
+				}
+				if (addr==0) {
+					spinlock_release(&kmalloc_spinlock);
+					panic("Error in alloc_pages"); 
+					return 0; 
+				}
+			}
+
+			struct frame_list_struct* deleteFrame;
+			deleteFrame = currentFrame;
+			frame_list = currentFrame->next_frame;
+			spinlock_release(&kmalloc_spinlock);
+			kfree(deleteFrame);
+			spinlock_acquire(&kmalloc_spinlock);
+		}
+	} else {
+		panic ("Error in alloc_kpages");
+		return 0;
 	}
 	spinlock_release(&kmalloc_spinlock);
-    panic("We should not get here");
-	return 0;
+	return PADDR_TO_KVADDR(addr);
 }
 
 /**
@@ -1336,7 +1315,7 @@ void free_kpages(paddr_t paddr) {
 	}
 
 	memset((void*)paddr, 0, PAGE_SIZE);
-
-	// TODO: add frame to frame list      
+	spinlock_release(&kmalloc_spinlock);
+	addToFrameList(frame_index, addTOP);
 }
 
