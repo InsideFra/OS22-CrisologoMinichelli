@@ -58,7 +58,14 @@ struct addrspace {
         size_t as_npages2;
         paddr_t as_stackpbase;
 #else
-        /* Put stuff here for your VM system */
+        vaddr_t as_vbase_code;
+        uint16_t as_npages_code;
+
+        vaddr_t as_vbase_data;
+        uint16_t as_npages_data;
+
+        vaddr_t as_vbase_stack;
+        uint16_t as_npages_stack;
 #endif
 };
 

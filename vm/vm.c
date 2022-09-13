@@ -27,6 +27,8 @@ void vm_bootstrap(void) {
     uint32_t RAM_Size = ram_getsize();
     uint32_t RAM_FirstFree = ram_getfirstfree();
 
+	KASSERT(sizeof(struct frame_list_struct) < LARGEST_SUBPAGE_SIZE);
+
 	PAGETABLE_ENTRY = RAM_Size/PAGE_SIZE;
 	
 	PT_Size = PAGETABLE_ENTRY * PTLR;

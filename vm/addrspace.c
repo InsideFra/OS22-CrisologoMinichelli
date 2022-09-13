@@ -33,13 +33,21 @@
 #include <addrspace.h>
 #include <vm.h>
 #include <proc.h>
+#include <pt.h>
 
-/*
- * Note! If OPT_DUMBVM is set, as is the case until you start the VM
- * assignment, this file is not compiled or linked or in any way
- * used. The cheesy hack versions in dumbvm.c are used instead.
- */
+extern struct frame_list_struct *frame_list;
 
+extern struct invertedPT (*main_PG);
+
+extern _Bool VM_Started;
+
+/**
+* @brief This method is called during the creation of a process's address space.
+* @author @InsideFra
+* @return a struct address space pointer
+*	At this point, we don't know much about the process, so we just allocate a small
+*	part of the memory to store the variable that will contain the information abount the address space
+*/
 struct addrspace *
 as_create(void)
 {
@@ -47,12 +55,17 @@ as_create(void)
 
 	as = kmalloc(sizeof(struct addrspace));
 	if (as == NULL) {
+		panic("Error while kmalloc in as_create()");
 		return NULL;
 	}
 
-	/*
-	 * Initialize as needed.
-	 */
+	as->as_vbase_code = 0;
+	as->as_npages_code = 0;
+
+	as->as_vbase_data = 0;
+	as->as_npages_data = 0;
+
+	as->as_vbase_stack = 0;
 
 	return as;
 }
@@ -143,14 +156,38 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
 	return ENOSYS;
 }
 
+/**
+* @brief This method is called during the loading of the program.
+* @author @InsideFra
+* @return a struct address space pointer
+*	This function is called after as_define_region();
+* 	In this case we just define the virtual address of the stack segment
+*/
 int
 as_prepare_load(struct addrspace *as)
 {
-	/*
-	 * Write this.
-	 */
+	paddr_t addr = 0;
+	DEBUG(DB_VM, "\nCODE: vAddr = 0x%x\t\n",
+		as->as_vbase_code);
 
-	(void)as;
+	DEBUG(DB_VM, "\nDATA: vAddr = 0x%x\t\n",
+		as->as_vbase_data);
+
+	as->as_vbase_stack = as->as_vbase_data + PAGE_SIZE*as->as_npages_data;
+	addr = alloc_kpages(as->as_npages_stack);
+	if (addr == 0) {
+		panic ("Error while as_prepare_load()");
+		return ENOMEM;
+	}
+	addr = addr - MIPS_KSEG0;
+	addr = addr << 12;
+
+	main_PG[addr].page_number = as->as_vbase_stack/PAGE_SIZE;
+	//main_PG[addr].pid = 
+	
+	DEBUG(DB_VM, "\nSTACK: vAddr = 0x%x\t\n",
+		as->as_vbase_stack);
+
 	return 0;
 }
 

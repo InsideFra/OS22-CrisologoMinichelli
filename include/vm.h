@@ -45,6 +45,24 @@
 #define VM_FAULT_WRITE       1    /* A write was attempted */
 #define VM_FAULT_READONLY    2    /* A write to a readonly page was attempted*/
 
+////////////////////////////////////////
+
+#if PAGE_SIZE == 4096
+
+#define NSIZES 8
+static const size_t sizes[NSIZES] = { 16, 32, 64, 128, 256, 512, 1024, 2048 };
+
+#define SMALLEST_SUBPAGE_SIZE 16
+#define LARGEST_SUBPAGE_SIZE 2048
+
+#elif PAGE_SIZE == 8192
+#error "No support for 8k pages (yet?)"
+#else
+#error "Odd page size"
+#endif
+
+////////////////////////////////////////
+
 
 /* Initialization function */
 void vm_bootstrap(void);
