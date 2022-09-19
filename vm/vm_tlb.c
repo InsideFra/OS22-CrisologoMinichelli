@@ -11,18 +11,22 @@
 * @author @InsideFra
 * @param vaddr The virtual address (0x00..) (even not aligned)
 * @param paddr The physicial address (0x80..)
+* @param Dirty Specify if the segment is writable (== 1) or not (== 0)
 * @date 02/08/2022
 * @return 0 if everything is okay else panic
 */
 int
-addTLB(vaddr_t vaddr, paddr_t paddr) {
+addTLB(vaddr_t vaddr, paddr_t paddr, _Bool Dirty) {
     uint32_t ehi, elo;
     paddr_t pa;
     int32_t tlb_index_probe;
 
     ehi = vaddr & PAGE_FRAME; // PAGE ALIGN
     pa = paddr - MIPS_KSEG0;
-    elo = pa | TLBLO_VALID | TLBLO_DIRTY;
+    if (Dirty) 
+        elo = pa | TLBLO_VALID | TLBLO_DIRTY;
+    else
+        elo = pa | TLBLO_VALID;
 
     int32_t spl = splhigh();
     tlb_index_probe = tlb_probe(ehi, elo); 
