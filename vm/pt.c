@@ -4,6 +4,7 @@
 #include <types.h>
 #include <vm.h>
 #include <spl.h>
+#include <lib.h>
 
 // We need to divide the physiical memory into fixed-sized blocks called FRAMES
 // Divide logical memory into blocks of same size called PAGES
@@ -58,4 +59,25 @@ pageSearch(vaddr_t addr) {
         return index;        
     }
     return noEntryFound;
+}
+
+/**
+* This method adds an entry to the page table.
+* @author @InsideFra
+* @param frame_index The frame number
+* @param vaddr The virtual address (0x00..)
+* @date 09/08/2022
+* @return 0 if everything ok, else panic;
+*/
+int addPT(uint32_t frame_index, vaddr_t vaddr) {
+    vaddr &= PAGE_FRAME; // alignment
+    vaddr = vaddr/PAGE_SIZE; // get page number
+    if (main_PG[frame_index].Valid == 1) {
+        panic("addPT(): Page valid, function not implemented yet");
+        return 0;
+    } else {
+        main_PG[frame_index].page_number = vaddr;
+        main_PG[frame_index].Valid = 1;
+        return 0;
+    }
 }

@@ -25,3 +25,5 @@ enum PT_Error{
 };
 
 int pageSearch(vaddr_t addr);
+
+int addPT(uint32_t frame_index, vaddr_t vaddr);
