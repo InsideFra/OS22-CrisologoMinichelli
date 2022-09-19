@@ -9,7 +9,9 @@
         "tlb.h": "c",
         "vm_tlb.h": "c",
         "list.h": "c",
-        "addrspace.h": "c"
+        "addrspace.h": "c",
+        "pt.h": "c",
+        "errno.h": "c"
     },
     "C_Cpp.errorSquiggles": "Enabled"
 }
