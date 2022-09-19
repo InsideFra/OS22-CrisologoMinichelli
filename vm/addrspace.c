@@ -31,9 +31,10 @@
 #include <kern/errno.h>
 #include <lib.h>
 #include <addrspace.h>
-#include <vm.h>
+#include <vm_tlb.h>
 #include <proc.h>
 #include <pt.h>
+#include <vm.h>
 
 extern struct frame_list_struct *frame_list;
 
@@ -140,19 +141,86 @@ as_deactivate(void)
  * want to implement them.
  */
 int
-as_define_region(struct addrspace *as, vaddr_t vaddr, size_t memsize,
-		 int readable, int writeable, int executable)
+as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize, 
+					int readable, int writeable, int executable) 
 {
-	/*
-	 * Write this.
-	 */
+	if (executable) {
+		// We are now loading a CODE segment
+		as->as_vbase_code = vaddr; 				// We store the first virtual address of the code segment 
+		as->as_npages_code = memsize/4096 + 1;	// We store how many pages would require the code segment
+		
+		// DEBUG
+		DEBUG(DB_VM, "\nCODE SEGMENT: start vAddr: 0x%x, size: %u pages: %u\n", 
+			as->as_vbase_code, memsize, as->as_npages_code);
+		
+		if (as->as_npages_code > MAX_CODE_SEGMENT_PAGES) 
+			DEBUG(DB_VM, "CODE SEGMENT: Demand Paging Activate\n");
+	    else 
+			DEBUG(DB_VM, "CODE SEGMENT: Demand Paging not needed in this case\n");
 
-	(void)as;
-	(void)vaddr;
-	(void)memsize;
-	(void)readable;
-	(void)writeable;
-	(void)executable;
+		for (unsigned int i = 0; i < MAX_CODE_SEGMENT_PAGES; i++) {
+			// Virtualizzation
+			// For each code page, allocate a physical frame and associate it to a page.
+			DEBUG(DB_VM, "CODE SEGMENT: ");
+			paddr_t addr = alloc_kpages(1);
+			if (addr == 0) {
+				panic("Error during memory allocation. See alloc_kpages called by as_define_region.\n");
+			}
+			uint32_t frame_index = (addr-MIPS_KSEG0)/PAGE_SIZE;
+
+			addPT(frame_index, as->as_vbase_code+i*PAGE_SIZE);
+
+			// Update TLB??
+			DEBUG(DB_VM, "CODE SEGMENT: ");
+			addTLB(as->as_vbase_code+i*PAGE_SIZE, addr, 0); // Dirty bit set to 0 as this is a read only segment
+		}
+		return 0;
+	} else {
+		// Not executable code
+		if (writeable) {
+			// Writable segment
+		}
+
+		if (readable) {
+			// Readable segment
+		}
+
+		if (writeable && readable) {	// writable and readable
+			// We are now loading a DATA segment 	
+			as->as_vbase_data = vaddr;				// We store the first virtual address of the data segment 
+			as->as_npages_data = memsize/4096 + 1;	// We store how many pages would require the data segment
+			
+			// DEBUG
+			DEBUG(DB_VM, "\nDATA SEGMENT: start vAddr: 0x%x, size: %u pages: %u\n", 
+				as->as_vbase_data, memsize, as->as_npages_data);
+			if (as->as_npages_data > MAX_DATA_SEGMENT_PAGES) 
+				DEBUG(DB_VM, "DATA SEGMENT: Demand Paging Activate\n");
+			else 
+				DEBUG(DB_VM, "DATA SEGMENT: Demand Paging not needed in this case\n");
+
+			for (unsigned int i = 0; i < MAX_DATA_SEGMENT_PAGES; i++) {
+				
+				// Virtualizzation
+				DEBUG(DB_VM, "DATA SEGMENT: ");
+				paddr_t addr = alloc_kpages(1);
+				if (addr == 0) {
+					panic("Error during memory allocation. See alloc_kpages called by as_define_region.\n");
+				}
+
+				uint32_t frame_index = (addr-MIPS_KSEG0)/PAGE_SIZE;
+
+				addPT(frame_index, as->as_vbase_data+i*PAGE_SIZE);
+
+				// Update TLB??
+				DEBUG(DB_VM, "DATA SEGMENT: ");
+				addTLB(as->as_vbase_data+i*PAGE_SIZE, addr, 1); // Dirty bit set to 1 as this is a writable segment
+			}
+			return 0;
+		}
+		DEBUG(DB_VM, "PAGING: General Error");
+		return ENOSYS;
+	}
+	DEBUG(DB_VM, "PAGING: General Error");
 	return ENOSYS;
 }
 
@@ -215,5 +283,44 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 	*stackptr = USERSTACK;
 
 	return 0;
+}
+
+/**
+* This method checks if the virtual address passed belong to a code segment.
+* This methos uses the address space to achieve this.
+* @author @InsideFra
+* @param vaddr The virtual address (0x00..)
+* @param as the address space
+* @date 09/08/2022
+* @return 1 if everything is okay else ..
+*/
+int
+is_codeSegment(vaddr_t vaddr, struct addrspace* as) {
+    vaddr_t offset = (vaddr_t)(as->as_npages_code << 12);
+    if (vaddr <= as->as_vbase_code + offset) {
+        if (vaddr >= as->as_vbase_code)
+            return 1;
+    }
+    return 0;
+}
+
+/**
+* This method checks if the virtual address passed belong to a data segment.
+* This methos uses the address space to achieve this.
+* @author @InsideFra
+* @param vaddr The virtual address (0x00..)
+* @param as the address space
+* @date 09/08/2022
+* @return 1 if everything is okay else ..
+*/
+int
+is_dataSegment(vaddr_t vaddr, struct addrspace* as) {
+    vaddr_t offset = (vaddr_t)(as->as_npages_data << 12);
+    if (vaddr <= as->as_vbase_data + offset) {
+        if (vaddr >= as->as_vbase_data) {
+            return 1;
+        }
+    }
+    return 0;
 }
 
