@@ -61,6 +61,9 @@ static const size_t sizes[NSIZES] = { 16, 32, 64, 128, 256, 512, 1024, 2048 };
 #error "Odd page size"
 #endif
 
+#define MAX_CODE_SEGMENT_PAGES 4
+#define MAX_DATA_SEGMENT_PAGES 4
+
 ////////////////////////////////////////
 
 
@@ -82,6 +85,5 @@ paddr_t alloc_pages(uint8_t npages, vaddr_t vaddr);
 // for debug purpose
 void print_page_table(void);
 void print_frame_list(void);
-
 
 #endif /* _VM_H_ */

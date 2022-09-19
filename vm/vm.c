@@ -7,6 +7,11 @@
 #include <spl.h>
 #include <lib.h>
 #include <list.h>
+#include <kern/errno.h>
+#include <current.h>
+#include <addrspace.h>
+#include <proc.h>
+#include <vm_tlb.h>
 
 // This variables indicates if the vm has been initialized
 _Bool VM_Started = false;
@@ -84,10 +89,91 @@ void vm_bootstrap(void) {
  * @param {vaddr_t} faultaddress - Virtual Address that causes the error.
  * @return {int} 0 if fault is addressed.
  */
-int vm_fault(int faulttype, vaddr_t faultaddress) {
-    (void)faulttype;
-    (void)faultaddress;
-    return 1;
+int
+vm_fault(int faulttype, vaddr_t faultaddress)
+{
+	struct addrspace *as;
+	
+	as = proc_getas();
+	if (as == NULL) {
+		/*
+		 * No address space set up. This is probably also a
+		 * kernel fault early in boot.
+		 */
+		return EFAULT;
+	}
+
+	faultaddress &= PAGE_FRAME;
+
+	_Bool inMemory = false;
+	int ret = 0;
+	switch (faulttype) {
+	    case VM_FAULT_READONLY:
+			// This fault happen when a program tries to write to a only-read segment.
+			// If such exception occurs, the kernel must terminate the process.
+			// The kernel should not crash!
+			// TODO #13:
+			panic("dumbvm: got VM_FAULT_READONLY\n");
+			break;
+	    case VM_FAULT_READ:
+			ret = pageSearch(faultaddress);
+			if (ret > 0) {
+				panic("Function not developed yet");
+			} else {
+				if (is_codeSegment(faultaddress, as)) {
+					// the TLB miss happened during a read to a code segment
+					// we can load this code segment from the ELF program file
+					return EINVAL;
+					return 0;
+				} else if (is_dataSegment(faultaddress, as)) {
+					// Trying to read from a data segment which is not in RAM
+					
+					// we should check if it is in disk memory
+					/* inMemory = is_inMemory(fauladdress, pid) */
+					(void)(inMemory);
+					return EINVAL;
+					return 0;
+				}
+				return EINVAL;
+			}
+			break;
+	    case VM_FAULT_WRITE:
+			ret = pageSearch(faultaddress);
+			if (ret < 0) {
+				// vAddress not loaded in the RAM Page Table
+				if (is_codeSegment(faultaddress, as)) {
+					// This should not happen, as case VM_FAULT_READONLY should be triggered first.
+					panic ("You cannot write 0x%x, is a code segment.\n", faultaddress);
+				}
+				if (is_dataSegment(faultaddress, as)) {
+					// Trying to write in a data segment which is not in RAM
+					
+					// we should check if it is in disk memory
+					/* inMemory = is_inMemory(fauladdress, pid) */
+					(void)(inMemory);
+					return EINVAL;	
+					
+					if(addTLB(faultaddress, (ret*PAGE_SIZE + MIPS_KSEG0), 1))
+						return 1;
+					return 0;
+				}
+				return 1;
+			}
+			return 0;
+			break;
+	    default:
+			return EINVAL;
+	}
+
+	if (curproc == NULL) {
+		/*
+		 * No process. This is probably a kernel fault early
+		 * in boot. Return EFAULT so as to panic instead of
+		 * getting into an infinite faulting loop.
+		 */
+		return EFAULT;
+	}
+	return EFAULT;
 }
 
 /**
