@@ -112,7 +112,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 			// This fault happen when a program tries to write to a only-read segment.
 			// If such exception occurs, the kernel must terminate the process.
 			// The kernel should not crash!
-			// TODO #13:
+			// TODO #14:
 			panic("dumbvm: got VM_FAULT_READONLY\n");
 			break;
 	    case VM_FAULT_READ:
@@ -130,6 +130,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 					
 					// we should check if it is in disk memory
 					/* inMemory = is_inMemory(fauladdress, pid) */
+					// TODO #15:
 					(void)(inMemory);
 					return EINVAL;
 					return 0;

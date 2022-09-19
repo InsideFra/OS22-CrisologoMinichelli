@@ -69,7 +69,7 @@ pageSearch(vaddr_t addr) {
 * @date 09/08/2022
 * @return 0 if everything ok, else panic;
 */
-int addPT(uint32_t frame_index, vaddr_t vaddr) {
+int addPT(uint32_t frame_index, vaddr_t vaddr, uint32_t pid) {
     vaddr &= PAGE_FRAME; // alignment
     vaddr = vaddr/PAGE_SIZE; // get page number
     if (main_PG[frame_index].Valid == 1) {
@@ -78,6 +78,7 @@ int addPT(uint32_t frame_index, vaddr_t vaddr) {
     } else {
         main_PG[frame_index].page_number = vaddr;
         main_PG[frame_index].Valid = 1;
+        main_PG[frame_index].pid = pid;
         return 0;
     }
 }

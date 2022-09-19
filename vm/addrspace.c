@@ -168,7 +168,7 @@ as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize,
 			}
 			uint32_t frame_index = (addr-MIPS_KSEG0)/PAGE_SIZE;
 
-			addPT(frame_index, as->as_vbase_code+i*PAGE_SIZE);
+			addPT(frame_index, as->as_vbase_code+i*PAGE_SIZE, 1);
 
 			// Update TLB??
 			DEBUG(DB_VM, "CODE SEGMENT: ");
@@ -209,7 +209,7 @@ as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize,
 
 				uint32_t frame_index = (addr-MIPS_KSEG0)/PAGE_SIZE;
 
-				addPT(frame_index, as->as_vbase_data+i*PAGE_SIZE);
+				addPT(frame_index, as->as_vbase_data+i*PAGE_SIZE, 1);
 
 				// Update TLB??
 				DEBUG(DB_VM, "DATA SEGMENT: ");
@@ -242,16 +242,15 @@ as_prepare_load(struct addrspace *as)
 		as->as_vbase_data);
 
 	as->as_vbase_stack = as->as_vbase_data + PAGE_SIZE*as->as_npages_data;
-	addr = alloc_kpages(as->as_npages_stack);
+	addr = alloc_kpages(1); // By now we just allocate one page for the stack. Later if needed, the kernel will use more pages
 	if (addr == 0) {
 		panic ("Error while as_prepare_load()");
 		return ENOMEM;
 	}
-	addr = addr - MIPS_KSEG0;
-	addr = addr << 12;
 
-	main_PG[addr].page_number = as->as_vbase_stack/PAGE_SIZE;
-	//main_PG[addr].pid = 
+	uint32_t frame_index = (addr-MIPS_KSEG0)/PAGE_SIZE;
+
+	addPT(frame_index, as->as_vbase_stack, 1);
 	
 	DEBUG(DB_VM, "\nSTACK: vAddr = 0x%x\t\n",
 		as->as_vbase_stack);

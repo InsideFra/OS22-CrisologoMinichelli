@@ -1259,7 +1259,9 @@ paddr_t alloc_kpages(unsigned npages) {
 			currentFrame = frame_list;
 			index = currentFrame->frame_number;
 			KASSERT(index < PAGETABLE_ENTRY);
-			main_PG[index].Valid = 1;
+			if (main_PG[index].Valid == 1) {
+				panic("This should not happen");
+			}
 			
 			if (addr == 0) {
 				addr = (index)*4096;
