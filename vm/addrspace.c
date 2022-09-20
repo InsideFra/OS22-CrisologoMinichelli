@@ -144,6 +144,7 @@ int
 as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize, 
 					int readable, int writeable, int executable) 
 {
+	pid_t pid = 1;
 	if (executable) {
 		// We are now loading a CODE segment
 		as->as_vbase_code = vaddr; 				// We store the first virtual address of the code segment 
@@ -162,17 +163,14 @@ as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize,
 			// Virtualizzation
 			// For each code page, allocate a physical frame and associate it to a page.
 			DEBUG(DB_VM, "CODE SEGMENT: ");
-			paddr_t addr = alloc_kpages(1);
-			if (addr == 0) {
+
+			if (alloc_pages(1, as->as_vbase_code+i*PAGE_SIZE)) {
 				panic("Error during memory allocation. See alloc_kpages called by as_define_region.\n");
 			}
-			uint32_t frame_index = (addr-MIPS_KSEG0)/PAGE_SIZE;
-
-			addPT(frame_index, as->as_vbase_code+i*PAGE_SIZE, 1);
-
+			
 			// Update TLB??
 			DEBUG(DB_VM, "CODE SEGMENT: ");
-			addTLB(as->as_vbase_code+i*PAGE_SIZE, addr, 0); // Dirty bit set to 0 as this is a read only segment
+			addTLB(as->as_vbase_code+i*PAGE_SIZE, pid, 0); // Dirty bit set to 0 as this is a read only segment
 		}
 		return 0;
 	} else {
@@ -202,18 +200,14 @@ as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize,
 				
 				// Virtualizzation
 				DEBUG(DB_VM, "DATA SEGMENT: ");
-				paddr_t addr = alloc_kpages(1);
-				if (addr == 0) {
+				
+				if (alloc_pages(1, as->as_vbase_data+i*PAGE_SIZE)) {
 					panic("Error during memory allocation. See alloc_kpages called by as_define_region.\n");
 				}
 
-				uint32_t frame_index = (addr-MIPS_KSEG0)/PAGE_SIZE;
-
-				addPT(frame_index, as->as_vbase_data+i*PAGE_SIZE, 1);
-
 				// Update TLB??
 				DEBUG(DB_VM, "DATA SEGMENT: ");
-				addTLB(as->as_vbase_data+i*PAGE_SIZE, addr, 1); // Dirty bit set to 1 as this is a writable segment
+				addTLB(as->as_vbase_data+i*PAGE_SIZE, pid, 1); // Dirty bit set to 1 as this is a writable segment
 			}
 			return 0;
 		}
@@ -272,15 +266,9 @@ as_complete_load(struct addrspace *as)
 int
 as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 {
-	/*
-	 * Write this.
-	 */
-
-	(void)as;
-
-	/* Initial user-level stack pointer */
-	*stackptr = USERSTACK;
-
+ 	*stackptr = (uint32_t)as->as_vbase_stack;
+	KASSERT(as->as_vbase_stack != 0);
+	DEBUG(DB_VM, "\nDefining stack pointer at address: 0x%x\n", (uint32_t)*stackptr);
 	return 0;
 }
 
