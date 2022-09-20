@@ -5,21 +5,43 @@
 #include <machine/tlb.h>
 #include <vm_tlb.h>
 #include <lib.h>
+#include <pt.h>
+
+extern unsigned int PAGETABLE_ENTRY;
+extern struct invertedPT (*main_PG);
 
 /**
 * This method is used to add an entry to the hardware TLB.
+*
+* The physical address is taken from the page table. 
+* If the Virtual Address and PID is not in the TLB, the kernel crash
+*
 * @author @InsideFra
 * @param vaddr The virtual address (0x00..) (even not aligned)
-* @param paddr The physicial address (0x80..)
+* @param pid The process pid
 * @param Dirty Specify if the segment is writable (== 1) or not (== 0)
 * @date 02/08/2022
 * @return 0 if everything is okay else panic
 */
 int
-addTLB(vaddr_t vaddr, paddr_t paddr, _Bool Dirty) {
+addTLB(vaddr_t vaddr, pid_t pid, _Bool Dirty) {
     uint32_t ehi, elo;
-    paddr_t pa;
+    paddr_t pa, paddr = 0;
     int32_t tlb_index_probe;
+    uint32_t page_index = vaddr/PAGE_SIZE;
+
+    for (unsigned int i = 0; i < PAGETABLE_ENTRY; i++) {
+        if (main_PG[i].Valid == 0)
+            continue;
+        
+        if (main_PG[i].page_number == page_index)
+            if(main_PG[i].pid == pid) {
+                paddr = i*PAGE_SIZE + MIPS_KSEG0;
+            }
+    }
+
+    if (paddr == 0)
+        panic("Error in addTLB from pageSearch");
 
     ehi = vaddr & PAGE_FRAME; // PAGE ALIGN
     pa = paddr - MIPS_KSEG0;
