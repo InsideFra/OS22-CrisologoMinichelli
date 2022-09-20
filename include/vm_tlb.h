@@ -3,6 +3,6 @@
 
 #include <types.h>
 
-int addTLB(vaddr_t vaddr, paddr_t paddr, _Bool Dirty);
+int addTLB(vaddr_t vaddr, pid_t pid, _Bool Dirty); 
 int removeTLB(vaddr_t vaddr);
 #endif /* _VM_TLB_H_ */

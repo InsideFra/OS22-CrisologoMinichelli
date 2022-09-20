@@ -64,6 +64,8 @@ static const size_t sizes[NSIZES] = { 16, 32, 64, 128, 256, 512, 1024, 2048 };
 #define MAX_CODE_SEGMENT_PAGES 4
 #define MAX_DATA_SEGMENT_PAGES 4
 
+#define MAX_PAGES_ALLOC 10
+
 ////////////////////////////////////////
 
 
@@ -73,7 +75,6 @@ void vm_bootstrap(void);
 /* Fault handling function called by trap code */
 int vm_fault(int faulttype, vaddr_t faultaddress);
 
-/* Allocate/free kernel heap pages (called by kmalloc/kfree) */
 paddr_t alloc_kpages(unsigned npages);
 void free_kpages(paddr_t paddr);
 

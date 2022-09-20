@@ -1216,7 +1216,7 @@ kfree(void *ptr)
 }
 
 /**
- * Used to allocate physical frame to kernel.
+ * Allocate/free kernel heap pages (called by kmalloc/kfree)
  * @param {uint} npages - Number of frame to allocated.
  * @return {int} physical address, else 0.
  */
@@ -1225,6 +1225,8 @@ paddr_t alloc_kpages(unsigned npages) {
 	uint8_t FIFOSize = 0;
 	struct frame_list_struct* currentFrame;
 	spinlock_acquire(&kmalloc_spinlock);
+
+	KASSERT(npages < MAX_PAGES_ALLOC);
 	
 	if (VM_Started == false) {
 		// VM still not initialized
@@ -1242,7 +1244,7 @@ paddr_t alloc_kpages(unsigned npages) {
 	currentFrame = frame_list;
 	if (currentFrame == NULL) {
 		spinlock_release(&kmalloc_spinlock);
-		panic ("Error in alloc_pages");
+		panic ("Error in alloc_kpages");
 		return 0;
 	}
 	FIFOSize = 1;
@@ -1262,6 +1264,12 @@ paddr_t alloc_kpages(unsigned npages) {
 			if (main_PG[index].Valid == 1) {
 				panic("This should not happen");
 			}
+
+			main_PG[index].Valid = 1; // Set the entry of the inverted page table as valid
+			
+			// Assign that part of the memory to the kernel, if need can be changed after the return of the function
+			main_PG[index].pid = 0; 
+			main_PG[index].page_number = 0;
 			
 			if (addr == 0) {
 				addr = (index)*4096;
@@ -1271,7 +1279,7 @@ paddr_t alloc_kpages(unsigned npages) {
 				}
 				if (addr==0) {
 					spinlock_release(&kmalloc_spinlock);
-					panic("Error in alloc_pages"); 
+					panic("Error in alloc_kpages"); 
 					return 0; 
 				}
 			}

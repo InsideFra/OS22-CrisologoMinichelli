@@ -93,6 +93,7 @@ int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
 	struct addrspace *as;
+	pid_t pid = 1;
 	
 	as = proc_getas();
 	if (as == NULL) {
@@ -140,7 +141,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 			break;
 	    case VM_FAULT_WRITE:
 			ret = pageSearch(faultaddress);
-			if (ret < 0) {
+			if (ret < 0) { // if (ret == noEntryFound) {
 				// vAddress not loaded in the RAM Page Table
 				if (is_codeSegment(faultaddress, as)) {
 					// This should not happen, as case VM_FAULT_READONLY should be triggered first.
@@ -152,14 +153,16 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 					// we should check if it is in disk memory
 					/* inMemory = is_inMemory(fauladdress, pid) */
 					(void)(inMemory);
-					return EINVAL;	
-					
-					if(addTLB(faultaddress, (ret*PAGE_SIZE + MIPS_KSEG0), 1))
-						return 1;
-					return 0;
+					return EINVAL;
 				}
 				return 1;
+			} else {
+				// The virtual address is in the inverter page table, but not in the TLB
+				// Just apply the TLB Replacment policy here
+				if(addTLB(faultaddress, pid, 1))
+				return 1;
 			}
+
 			return 0;
 			break;
 	    default:
@@ -191,11 +194,21 @@ void vm_tlbshootdown(const struct tlbshootdown *tlb) {
  * @return 0 if everything ok.
  */
 paddr_t alloc_pages(uint8_t npages, vaddr_t vaddr) {
+	paddr_t paddr = 0;
+	uint32_t frame_index = 0;
+	uint32_t pid = 1;
 	KASSERT(VM_Started);
-	(void)npages;
-	(void)vaddr;
+	for (unsigned int i = 0; i < npages; i++) {
+		paddr = alloc_kpages(1);
+		if (paddr == 0) {
+			panic("Error in alloc_pages() during kmalloc()");
+		}
+
+		frame_index = (paddr - MIPS_KSEG0)/PAGE_SIZE;
+
+		addPT(frame_index, vaddr, pid);
+	}
 	return 0;
-	return 1;
 }
 
 /*

@@ -8,7 +8,7 @@ struct invertedPT {
     _Bool Modified;
     _Bool Valid;
     uint32_t clock;
-    uint32_t pid;
+    pid_t pid;
     uint32_t page_number;
 };
 
@@ -21,9 +21,8 @@ struct frame_list_struct {
 };
 
 enum PT_Error{
-    noEntryFound
+    noEntryFound = -1
 };
-
 int pageSearch(vaddr_t addr);
 
 int addPT(uint32_t frame_index, vaddr_t vaddr, uint32_t pid);
