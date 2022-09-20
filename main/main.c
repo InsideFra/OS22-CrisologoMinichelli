@@ -49,6 +49,7 @@
 #include <syscall.h>
 #include <test.h>
 #include <version.h>
+#include <syscall.h>
 #include "autoconf.h"  // for pseudoconfig
 
 
@@ -199,6 +200,17 @@ sys_reboot(int code)
 
 	panic("reboot operation failed\n");
 	return 0;
+}
+
+/**
+* This method has been implemented in order to kill a process.
+* @author @InsideFra
+* @date 20/09/2022
+* @return 0 if the process has been killed;
+*/
+int
+sys_exit(void) {
+	return 1;
 }
 
 /*
