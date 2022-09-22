@@ -72,12 +72,33 @@ pageSearch(vaddr_t addr) {
 int addPT(uint32_t frame_index, vaddr_t vaddr, uint32_t pid) {
     vaddr &= PAGE_FRAME; // alignment
     vaddr = vaddr/PAGE_SIZE; // get page number
+
+    //print_page_table();
     
-    if (main_PG[frame_index].Valid == 1)
-        DEBUG(DB_VM, "addPT(): Page valid");
+    if (main_PG[frame_index].Valid == 1) {
+        if (main_PG[frame_index].page_number == 0 && main_PG[frame_index].pid == 0) {
+            //DEBUG(DB_VM, "addPT(): Page valid");
+            ;
+        } else {
+            panic("addPT() error: You cannot add this page table");
+        }
+    }
     
     main_PG[frame_index].page_number = vaddr;
     main_PG[frame_index].Valid = 1;
     main_PG[frame_index].pid = pid;
+
+    // DEBUG
+    kprintf("(addPT    ): main_PG[%d]\tPN: %x\tpAddr: 0x%x\t-%s-",
+        frame_index, 
+        main_PG[frame_index].page_number, 
+        PADDR_TO_KVADDR(4096*(frame_index)), 
+        main_PG[frame_index].Valid == 1 ? "V" : "N");
+    if (main_PG[frame_index].Valid == 1)
+        kprintf("%s-\t", main_PG[frame_index].pid == 0 ? "KERNEL" : "USER");
+    else 
+        kprintf("\t");
+        
+    kprintf("\n");
     return 0;
 }

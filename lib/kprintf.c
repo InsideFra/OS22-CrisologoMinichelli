@@ -99,11 +99,12 @@ kprintf(const char *fmt, ...)
 	va_list ap;
 	bool dolock;
 
-	dolock = kprintf_lock != NULL
-		&& curthread->t_in_interrupt == false
-		&& curthread->t_curspl == 0
-		&& curcpu->c_spinlocks == 0;
-
+	// dolock = kprintf_lock != NULL
+	// 	&& curthread->t_in_interrupt == false
+	// 	&& curthread->t_curspl == 0
+	// 	&& curcpu->c_spinlocks == 0;
+	dolock = 0;
+	
 	if (dolock) {
 		lock_acquire(kprintf_lock);
 	}
