@@ -54,6 +54,9 @@
  */
 struct proc *kproc;
 
+/* Used to take trace of pid */
+uint8_t next_free_pid = 0;
+
 /*
  * Create a proc structure.
  */
@@ -81,6 +84,12 @@ proc_create(const char *name)
 
 	/* VFS fields */
 	proc->p_cwd = NULL;
+
+	/* Reset Exit Status */
+	proc->exit_status = 0;
+
+	/* Set Process ID */
+	proc->pid = next_free_pid++; 
 
 	return proc;
 }

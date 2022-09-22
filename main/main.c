@@ -50,6 +50,7 @@
 #include <test.h>
 #include <version.h>
 #include <syscall.h>
+#include <addrspace.h>
 #include "autoconf.h"  // for pseudoconfig
 
 
@@ -141,6 +142,18 @@ boot(void)
 	COMPILE_ASSERT(sizeof(*(userptr_t)0) == sizeof(char));
 }
 
+extern unsigned int TLB_Faults;
+extern unsigned int TLB_Faults_wFree;
+extern unsigned int TLB_Faults_wReplace;
+extern unsigned int TLB_Invalidations;
+extern unsigned int TLB_Reloads;
+
+extern unsigned int PF_Zeroed;
+extern unsigned int PF_Disk;
+extern unsigned int PF_ELF;
+extern unsigned int PF_Swapfile;
+extern unsigned int SF_Writes;
+
 /*
  * Shutdown sequence. Opposite to boot().
  */
@@ -209,10 +222,16 @@ sys_reboot(int code)
 * @return 0 if the process has been killed;
 */
 int
-sys_exit(void) {
+sys__exit(int status) {
+	curproc->exit_status = status;
+	as_destroy(curproc->p_addrspace);
+	thread_exit();
 	return 1;
 }
 
+#include <kern/fcntl.h>
+#include <uio.h>
+#include <vnode.h>
 /*
  * Kernel main. Boot up, then fork the menu thread; wait for a reboot
  * request, and then shut down.
@@ -220,8 +239,44 @@ sys_exit(void) {
 void
 kmain(char *arguments)
 {
+	(void)arguments;
 	boot();
-
+	
+	struct vnode *v;
+	int result;
+	char filename[] = "swapfile";
+	/* Open the file. */
+	result = vfs_open(filename, O_RDWR | O_CREAT, 0, &v);
+	if (result) {
+		KASSERT(0);
+	}
+	
+	/* Usage example;
+	* 	char buf[128];
+	* 	struct iovec iov;
+	* 	struct uio myuio;
+	*
+	* 	uio_kinit(&iov, &myuio, buf, sizeof(buf), 0, UIO_READ);
+	*      result = VOP_READ(vn, &myuio);
+	*      ...
+	*/
+	char buffer_read[128];
+	struct iovec iov;
+	struct uio myuio;
+	uio_kinit(&iov, &myuio, buffer_read, sizeof(buffer_read), 0, UIO_READ);
+	result = VOP_READ(v, &myuio);
+	if (result) {
+		KASSERT(0);
+	}
+	kprintf(buffer_read);
+	kprintf("\n");
+	char buffer_write[128] = "Mario Draghi";
+	int err;
+	uio_kinit(&iov, &myuio, buffer_write, strlen(buffer_write), 5, UIO_WRITE);
+	err = VOP_WRITE(v, &myuio);
+	(void)err;
+	vfs_close(v);
+	
 	menu(arguments);
 
 	/* Should not get here */

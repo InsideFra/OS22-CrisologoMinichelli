@@ -35,6 +35,7 @@
 #include <proc.h>
 #include <pt.h>
 #include <vm.h>
+#include <current.h>
 
 extern struct frame_list_struct *frame_list;
 
@@ -42,6 +43,7 @@ extern struct invertedPT (*main_PG);
 
 extern _Bool VM_Started;
 
+extern unsigned int PAGETABLE_ENTRY;
 /**
 * @brief This method is called during the creation of a process's address space.
 * @author @InsideFra
@@ -99,6 +101,11 @@ as_destroy(struct addrspace *as)
 	 */
 
 	kfree(as);
+	for (unsigned int i = 0; i < PAGETABLE_ENTRY; i++) {
+		if (main_PG[i].pid == 1 && main_PG[i].Valid == 1) {
+			free_kpages(i*4096 + MIPS_KSEG0);
+		}
+	}
 }
 
 void
@@ -144,7 +151,8 @@ int
 as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize, 
 					int readable, int writeable, int executable) 
 {
-	pid_t pid = 1;
+	pid_t pid = curproc->pid;
+	uint32_t max_load = 0; // the number of pages loaded in the physical memory
 	if (executable) {
 		// We are now loading a CODE segment
 		as->as_vbase_code = vaddr; 				// We store the first virtual address of the code segment 
@@ -154,12 +162,16 @@ as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize,
 		DEBUG(DB_VM, "\nCODE SEGMENT: start vAddr: 0x%x, size: %u pages: %u\n", 
 			as->as_vbase_code, memsize, as->as_npages_code);
 		
-		if (as->as_npages_code > MAX_CODE_SEGMENT_PAGES) 
+		if (as->as_npages_code > MAX_CODE_SEGMENT_PAGES) {
 			DEBUG(DB_VM, "CODE SEGMENT: Demand Paging Activate\n");
-	    else 
+			max_load = MAX_CODE_SEGMENT_PAGES;
+		}
+	    else {
 			DEBUG(DB_VM, "CODE SEGMENT: Demand Paging not needed in this case\n");
-
-		for (unsigned int i = 0; i < MAX_CODE_SEGMENT_PAGES; i++) {
+			max_load = as->as_npages_code;
+		}
+		
+		for (unsigned int i = 0; i < max_load; i++) {
 			// Virtualizzation
 			// For each code page, allocate a physical frame and associate it to a page.
 			DEBUG(DB_VM, "CODE SEGMENT: ");
@@ -191,12 +203,15 @@ as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize,
 			// DEBUG
 			DEBUG(DB_VM, "\nDATA SEGMENT: start vAddr: 0x%x, size: %u pages: %u\n", 
 				as->as_vbase_data, memsize, as->as_npages_data);
-			if (as->as_npages_data > MAX_DATA_SEGMENT_PAGES) 
+			if (as->as_npages_data > MAX_DATA_SEGMENT_PAGES) { 
 				DEBUG(DB_VM, "DATA SEGMENT: Demand Paging Activate\n");
-			else 
+				max_load = MAX_DATA_SEGMENT_PAGES; }
+			else {
 				DEBUG(DB_VM, "DATA SEGMENT: Demand Paging not needed in this case\n");
-
-			for (unsigned int i = 0; i < MAX_DATA_SEGMENT_PAGES; i++) {
+				max_load = as->as_npages_data;
+			}
+			
+			for (unsigned int i = 0; i < max_load; i++) {
 				
 				// Virtualizzation
 				DEBUG(DB_VM, "DATA SEGMENT: ");

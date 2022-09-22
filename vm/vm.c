@@ -12,6 +12,7 @@
 #include <addrspace.h>
 #include <proc.h>
 #include <vm_tlb.h>
+#include <current.h>
 
 // This variables indicates if the vm has been initialized
 _Bool VM_Started = false;
@@ -67,7 +68,7 @@ void vm_bootstrap(void) {
 	}
 
 	//print_frame_list();
-	//print_page_table();
+	print_page_table();
 
 	// TLB invalid fill
 	uint32_t ehi, elo;
@@ -93,7 +94,7 @@ int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
 	struct addrspace *as;
-	pid_t pid = 1;
+	pid_t pid = curproc->pid;
 	
 	as = proc_getas();
 	if (as == NULL) {
@@ -185,6 +186,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
  */
 void vm_tlbshootdown(const struct tlbshootdown *tlb) {
     (void)tlb;
+	panic("Someone tried to shutdown the TLB");
 };
 
 /**
@@ -196,7 +198,7 @@ void vm_tlbshootdown(const struct tlbshootdown *tlb) {
 paddr_t alloc_pages(uint8_t npages, vaddr_t vaddr) {
 	paddr_t paddr = 0;
 	uint32_t frame_index = 0;
-	uint32_t pid = 1;
+	uint32_t pid = curproc->pid;
 	KASSERT(VM_Started);
 	for (unsigned int i = 0; i < npages; i++) {
 		paddr = alloc_kpages(1);
