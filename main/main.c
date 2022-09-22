@@ -126,12 +126,13 @@ boot(void)
 	kheap_nextgeneration();
 
 	/* Late phase of initialization. */
-	vm_bootstrap();
 	kprintf_bootstrap();
 	thread_start_cpus();
 
 	/* Default bootfs - but ignore failure, in case emu0 doesn't exist */
 	vfs_setbootfs("emu0");
+
+	vm_bootstrap();
 
 	kheap_nextgeneration();
 
@@ -141,18 +142,6 @@ boot(void)
 	COMPILE_ASSERT(sizeof(userptr_t) == sizeof(char *));
 	COMPILE_ASSERT(sizeof(*(userptr_t)0) == sizeof(char));
 }
-
-extern unsigned int TLB_Faults;
-extern unsigned int TLB_Faults_wFree;
-extern unsigned int TLB_Faults_wReplace;
-extern unsigned int TLB_Invalidations;
-extern unsigned int TLB_Reloads;
-
-extern unsigned int PF_Zeroed;
-extern unsigned int PF_Disk;
-extern unsigned int PF_ELF;
-extern unsigned int PF_Swapfile;
-extern unsigned int SF_Writes;
 
 /*
  * Shutdown sequence. Opposite to boot().
@@ -242,40 +231,40 @@ kmain(char *arguments)
 	(void)arguments;
 	boot();
 	
-	struct vnode *v;
-	int result;
-	char filename[] = "swapfile";
-	/* Open the file. */
-	result = vfs_open(filename, O_RDWR | O_CREAT, 0, &v);
-	if (result) {
-		KASSERT(0);
-	}
+	// struct vnode *v;
+	// int result;
+	// char filename[] = "swapfile1";
+	// /* Open the file. */
+	// result = vfs_open(filename, O_RDWR | O_CREAT, 0, &v);
+	// if (result) {
+	// 	KASSERT(0);
+	// }
 	
-	/* Usage example;
-	* 	char buf[128];
-	* 	struct iovec iov;
-	* 	struct uio myuio;
-	*
-	* 	uio_kinit(&iov, &myuio, buf, sizeof(buf), 0, UIO_READ);
-	*      result = VOP_READ(vn, &myuio);
-	*      ...
-	*/
-	char buffer_read[128];
-	struct iovec iov;
-	struct uio myuio;
-	uio_kinit(&iov, &myuio, buffer_read, sizeof(buffer_read), 0, UIO_READ);
-	result = VOP_READ(v, &myuio);
-	if (result) {
-		KASSERT(0);
-	}
-	kprintf(buffer_read);
-	kprintf("\n");
-	char buffer_write[128] = "Mario Draghi";
-	int err;
-	uio_kinit(&iov, &myuio, buffer_write, strlen(buffer_write), 5, UIO_WRITE);
-	err = VOP_WRITE(v, &myuio);
-	(void)err;
-	vfs_close(v);
+	// /* Usage example;
+	// * 	char buf[128];
+	// * 	struct iovec iov;
+	// * 	struct uio myuio;
+	// *
+	// * 	uio_kinit(&iov, &myuio, buf, sizeof(buf), 0, UIO_READ);
+	// *      result = VOP_READ(vn, &myuio);
+	// *      ...
+	// */
+	// char buffer_read[128];
+	// struct iovec iov;
+	// struct uio myuio;
+	// uio_kinit(&iov, &myuio, buffer_read, sizeof(buffer_read), 0, UIO_READ);
+	// result = VOP_READ(v, &myuio);
+	// if (result) {
+	// 	KASSERT(0);
+	// }
+	// kprintf(buffer_read);
+	// kprintf("\n");
+	// char buffer_write[128] = "Mario Draghi";
+	// int err;
+	// uio_kinit(&iov, &myuio, buffer_write, strlen(buffer_write), 5, UIO_WRITE);
+	// err = VOP_WRITE(v, &myuio);
+	// (void)err;
+	// vfs_close(v);
 	
 	menu(arguments);
 

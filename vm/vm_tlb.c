@@ -40,8 +40,10 @@ addTLB(vaddr_t vaddr, pid_t pid, _Bool Dirty) {
             }
     }
 
-    if (paddr == 0)
+    if (paddr == 0) {
         panic("Error in addTLB from pageSearch");
+        print_page_table();
+    }
 
     ehi = vaddr & PAGE_FRAME; // PAGE ALIGN
     pa = paddr - MIPS_KSEG0;
@@ -105,16 +107,16 @@ removeTLB(vaddr_t vaddr) {
             elo = TLBLO_INVALID();
             tlb_write(ehi, elo, i);
             
-            if( (elo & 0x00000fff) & TLBLO_DIRTY) {
-                DEBUG(DB_VM, "Dirty "); }
-            else {
-                DEBUG(DB_VM, "No Dirty "); }
-            
             if( (elo & 0x00000fff) & TLBLO_VALID) {
-                DEBUG(DB_VM, "Invalid "); }
+                DEBUG(DB_VM, "-N- "); }
             else {
-                DEBUG(DB_VM, "Valid "); }
+                DEBUG(DB_VM, "-V- "); }
 
+            if( (elo & 0x00000fff) & TLBLO_DIRTY) {
+                DEBUG(DB_VM, "D   -"); }
+            else {
+                DEBUG(DB_VM, "-ND  -"); }
+            
             DEBUG(DB_VM, "\n");
             
             splx(spl);
