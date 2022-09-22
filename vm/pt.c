@@ -5,6 +5,7 @@
 #include <vm.h>
 #include <spl.h>
 #include <lib.h>
+#include <kern/errno.h>
 
 // We need to divide the physiical memory into fixed-sized blocks called FRAMES
 // Divide logical memory into blocks of same size called PAGES
@@ -31,6 +32,8 @@ unsigned int PTLR = sizeof(struct invertedPT);
  * The FIFO queue is empty if frame_list == NULL
  */
 struct frame_list_struct (*frame_list) = NULL;
+
+uint32_t pt_counter = 0;
 
 /**
 * This method checks if the virtual address is present and valid inside the inverted PageTable.
@@ -87,18 +90,57 @@ int addPT(uint32_t frame_index, vaddr_t vaddr, uint32_t pid) {
     main_PG[frame_index].page_number = vaddr;
     main_PG[frame_index].Valid = 1;
     main_PG[frame_index].pid = pid;
+    //main_PG[frame_index].victim_counter = pt_counter;
 
     // DEBUG
-    kprintf("(addPT    ): main_PG[%d]\tPN: %x\tpAddr: 0x%x\t-%s-",
-        frame_index, 
-        main_PG[frame_index].page_number, 
-        PADDR_TO_KVADDR(4096*(frame_index)), 
-        main_PG[frame_index].Valid == 1 ? "V" : "N");
-    if (main_PG[frame_index].Valid == 1)
-        kprintf("%s-\t", main_PG[frame_index].pid == 0 ? "KERNEL" : "USER");
-    else 
-        kprintf("\t");
+    // kprintf("(addPT    ): [%3d] PN: %x\tpAddr: 0x%x\t-%s-",
+    //     frame_index, 
+    //     main_PG[frame_index].page_number, 
+    //     PADDR_TO_KVADDR(4096*(frame_index)), 
+    //     main_PG[frame_index].Valid == 1 ? "V" : "N");
+    // if (main_PG[frame_index].Valid == 1)
+    //     kprintf("%s-\t", main_PG[frame_index].pid == 0 ? "KERNEL" : "USER");
+    // else 
+    //     kprintf("\t");
         
-    kprintf("\n");
+    // kprintf("\n");
     return 0;
 }
+
+/**
+* This function allow to find the victim page inside RAM page table
+* @author @Marco_Embed
+* @param 
+* @date 20/09/2022
+* @return page number of victim page;
+*/
+int victim_pageSearch(void){
+    uint32_t min_value;
+    uint32_t victim_page = 0;
+    bool first_page;
+    for(unsigned int i = 0; i < PAGETABLE_ENTRY; i++) {
+       if(i == first_page){
+            min_value = main_PG[i].victim_counter;
+            victim_page = main_PG[i].page_number;
+            first_page = 0;
+       } else if(min_value > main_PG[i].victim_counter){
+            min_value = main_PG[i].victim_counter;
+            victim_page = main_PG[i].page_number;
+       }
+    }
+
+    if(!victim_page){
+        //error
+    }
+    return victim_page;
+}
+
+/* LRU algorithm */
+int page_replacement(int page_num){
+	free_kpages((paddr_t)(page_num*PAGE_SIZE + MIPS_KSEG0));
+	return 0;
+}
+
+/* swap in func*/
+
+/* swap out func*/

@@ -13,6 +13,7 @@
 #include <proc.h>
 #include <vm_tlb.h>
 #include <current.h>
+#include <swapfile.h>
 
 // This variables indicates if the vm has been initialized
 _Bool VM_Started = false;
@@ -68,7 +69,7 @@ void vm_bootstrap(void) {
 	}
 
 	//print_frame_list();
-	print_page_table();
+	//print_page_table();
 
 	// TLB invalid fill
 	uint32_t ehi, elo;
@@ -81,8 +82,13 @@ void vm_bootstrap(void) {
 	splx(spl);
     // end TLB invalid fill
 
+	swapfile_init();
+
     VM_Started = true;
 }
+
+#include <kern/fcntl.h>
+#include <vfs.h>
 
 /**
  * Usually called by mips_trap().
@@ -94,7 +100,7 @@ int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
 	struct addrspace *as;
-	pid_t pid = curproc->pid;
+	//pid_t pid = curproc->pid;
 	
 	as = proc_getas();
 	if (as == NULL) {
@@ -105,10 +111,12 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		return EFAULT;
 	}
 
-	faultaddress &= PAGE_FRAME;
-
-	_Bool inMemory = false;
+	struct vnode *v;
+	vaddr_t entrypoint;
+	int result = 0;
 	int ret = 0;
+	uint32_t a, b, c, d;
+	_Bool inMemory = false;
 	switch (faulttype) {
 	    case VM_FAULT_READONLY:
 			// This fault happen when a program tries to write to a only-read segment.
@@ -120,49 +128,163 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	    case VM_FAULT_READ:
 			ret = pageSearch(faultaddress);
 			if (ret > 0) {
+				faultaddress &= PAGE_FRAME;
 				panic("Function not developed yet");
 			} else {
 				if (is_codeSegment(faultaddress, as)) {
+					faultaddress &= PAGE_FRAME;
+
 					// the TLB miss happened during a read to a code segment
 					// we can load this code segment from the ELF program file
-					return EINVAL;
+					b = as->as_vbase_data & PAGE_FRAME;
+					d = (faultaddress - b) >> 12;
+					a = MAX_CODE_SEGMENT_PAGES;
+					c = (d%a);
+
+					for (unsigned int i = 0; i < (as->as_npages_code/MAX_CODE_SEGMENT_PAGES); i++) {
+						ret = pageSearch(b + c*PAGE_SIZE + i*(a*PAGE_SIZE));
+						if (ret != noEntryFound) {
+							free_kpages((paddr_t)(ret*PAGE_SIZE + MIPS_KSEG0));
+							break;
+						} else {
+							continue;
+						}
+					}
+
+					result = alloc_kpages(1);
+					
+					if (result == 0) {
+						return EINVAL;
+					}
+
+					addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid );
+
+					if (addTLB(faultaddress, curproc->pid, 0)) {
+						return EINVAL;
+					}
+
+					/* Open the file. */
+					result = vfs_open(curproc->p_name, O_RDONLY, 0, &v);
+					if (result) {
+						return result;
+					}
+
+					/* Load 1 pages from the faultaddress. */
+					result = load_elf(v, &entrypoint, faultaddress, 1);
+					if (result) {
+						/* p_addrspace will go away when curproc is destroyed */
+						vfs_close(v);
+						return result;
+					}
+
 					return 0;
 				} else if (is_dataSegment(faultaddress, as)) {
+					faultaddress &= PAGE_FRAME;
 					// Trying to read from a data segment which is not in RAM
 					
 					// we should check if it is in disk memory
 					/* inMemory = is_inMemory(fauladdress, pid) */
-					// TODO #15:
 					(void)(inMemory);
-					return EINVAL;
+
+					b = as->as_vbase_data & PAGE_FRAME ;
+					d = (faultaddress - b) >> 12;
+					a = MAX_DATA_SEGMENT_PAGES;
+					c = (d%a);
+
+					for (unsigned int i = 0; i < (as->as_npages_data/MAX_DATA_SEGMENT_PAGES); i++) {
+						ret = pageSearch(b + c*PAGE_SIZE + i*(a*PAGE_SIZE));
+						if (ret != noEntryFound) {
+							// before freeing the page from the memory, we should save it?
+							free_kpages((paddr_t)(ret*PAGE_SIZE + MIPS_KSEG0));
+							break;
+						} else {
+							continue;
+						}
+					}
+
+					result = alloc_kpages(1);
+					
+					if (result == 0) {
+						return EINVAL;
+					}
+
+					addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid );
+
+					if (addTLB(faultaddress, curproc->pid, 0)) {
+						return EINVAL;
+					}
+
+					// we should load from disk?	
 					return 0;
+					
+					return EINVAL;
 				}
 				return EINVAL;
 			}
 			break;
 	    case VM_FAULT_WRITE:
 			ret = pageSearch(faultaddress);
-			if (ret < 0) { // if (ret == noEntryFound) {
+			if (ret < 0) {
 				// vAddress not loaded in the RAM Page Table
 				if (is_codeSegment(faultaddress, as)) {
-					// This should not happen, as case VM_FAULT_READONLY should be triggered first.
+					faultaddress &= PAGE_FRAME;
 					panic ("You cannot write 0x%x, is a code segment.\n", faultaddress);
 				}
 				if (is_dataSegment(faultaddress, as)) {
+					faultaddress &= PAGE_FRAME;
 					// Trying to write in a data segment which is not in RAM
 					
 					// we should check if it is in disk memory
 					/* inMemory = is_inMemory(fauladdress, pid) */
 					(void)(inMemory);
-					return EINVAL;
+
+					b = as->as_vbase_data & PAGE_FRAME ;
+					d = (faultaddress - b) >> 12;
+					a = MAX_DATA_SEGMENT_PAGES;
+					c = (d%a);
+					
+					/*--------------------------------------------------*/	
+					//LRU algorithm
+					//victim_page = victim_pageSearch();
+					//if(page_swapOut(victim_page)){
+					//	page_replacement(victim_page);
+					//}
+
+					/*--------------------------------------------------*/	
+
+					for (unsigned int i = 0; i < (as->as_npages_data/MAX_DATA_SEGMENT_PAGES); i++) {
+						ret = pageSearch(b + c*PAGE_SIZE + i*(a*PAGE_SIZE));
+						if (ret != noEntryFound) {
+							/* Saving the frame in the disk memory
+							 * before freeing the frame
+							 */
+							swapOut(ret*PAGE_SIZE + MIPS_KSEG0);
+							break;
+						} else {
+							continue;
+						}
+					}
+
+					result = alloc_kpages(1);
+					
+					if (result == 0) {
+						return EINVAL;
+					}
+
+					addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid );
+
+					if (addTLB(faultaddress, curproc->pid, 0)) {
+						return EINVAL;
+					}
+
+					// we should load from disk?	
+					return 0;
 				}
 				return 1;
-			} else {
-				// The virtual address is in the inverter page table, but not in the TLB
-				// Just apply the TLB Replacment policy here
-				if(addTLB(faultaddress, pid, 1))
-				return 1;
 			}
+			
+			if(addTLB(faultaddress, curproc->pid, 1))
+				return 1;
 
 			return 0;
 			break;

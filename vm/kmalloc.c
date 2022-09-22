@@ -44,6 +44,8 @@ extern struct frame_list_struct (*frame_list);
 
 extern unsigned int PAGETABLE_ENTRY;
 
+extern uint32_t pt_counter;
+
 /*
  * Kernel malloc.
  */
@@ -1266,11 +1268,13 @@ paddr_t alloc_kpages(unsigned npages) {
 				panic("This should not happen");
 			}
 
+			pt_counter++;
 			main_PG[index].Valid = 1; // Set the entry of the inverted page table as valid
 			
 			// Assign that part of the memory to the kernel, if need can be changed after the return of the function
 			main_PG[index].pid = 0; 
 			main_PG[index].page_number = 0;
+			main_PG[index].victim_counter = pt_counter;
 			
 			if (addr == 0) {
 				addr = (index)*4096;
