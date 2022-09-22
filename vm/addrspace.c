@@ -149,7 +149,7 @@ as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize,
 	if (executable) {
 		// We are now loading a CODE segment
 		as->as_vbase_code = vaddr; 				// We store the first virtual address of the code segment 
-		as->as_npages_code = memsize/4096 + 1;	// We store how many pages would require the code segment
+		as->as_npages_code = memsize/4096 + 1;	// We store how many pages would require the code segment (PAGESIZE INSTEAD OF 4096)
 		
 		// DEBUG
 		DEBUG(DB_VM, "\nCODE SEGMENT: start vAddr: 0x%x, size: %u pages: %u\n", 
@@ -317,7 +317,8 @@ int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
 	struct addrspace *as;
-	
+	//int victim_page;
+
 	as = proc_getas();
 	if (as == NULL) {
 		/*
@@ -453,6 +454,15 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 					d = (faultaddress - b) >> 12;
 					a = as->processPageTable_INFO->data_entries;
 					c = (d%a);
+					
+					/*--------------------------------------------------*/	
+					//LRU algorithm
+					//victim_page = victim_pageSearch();
+					//if(page_swapOut(victim_page)){
+					//	page_replacement(victim_page);
+					//}
+
+					/*--------------------------------------------------*/	
 
 					for (unsigned int i = 0; i < (as->as_npages_data/as->processPageTable_INFO->data_entries); i++) {
 						ret = pageSearch(b + c*PAGE_SIZE + i*(a*PAGE_SIZE));

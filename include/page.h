@@ -30,6 +30,7 @@ struct RAM_PG_ {
     uint32_t Valid;
     uint32_t pid;
     uint32_t page_number;
+    uint32_t victim_counter;
 };
 
 struct PG_ {

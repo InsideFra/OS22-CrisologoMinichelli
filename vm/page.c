@@ -1,6 +1,7 @@
 #include <types.h>
 #include <vm.h>
 #include <spinlock.h>
+#include <kern/errno.h>
 #include <page.h>
 #include <machine/tlb.h>
 #include <spl.h>
@@ -15,6 +16,7 @@ static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
 // Keep track of all free frames
 // SET UP A PAGE TABLE to translate logical to physical addresses
 struct RAM_PG_ (*main_PG) = NULL;
+uint32_t pt_counter = 0;
 
 /**
 * Allocate/free some kernel-space virtual pages
@@ -182,6 +184,34 @@ pageSearch(vaddr_t addr) {
 }
 
 /**
+* This function allow to find the victim page inside RAM page table
+* @author @Marco_Embed
+* @param 
+* @date 20/09/2022
+* @return page number of victim page;
+*/
+int victim_pageSearch(void){
+    uint32_t min_value;
+    uint32_t victim_page = 0;
+    bool first_page;
+    for(unsigned int i = 0; i < PAGETABLE_ENTRY; i++) {
+       if(i == first_page){
+            min_value = main_PG[i].victim_counter;
+            victim_page = main_PG[i].page_number;
+            first_page = 0;
+       } else if(min_value > main_PG[i].victim_counter){
+            min_value = main_PG[i].victim_counter;
+            victim_page = main_PG[i].page_number;
+       }
+    }
+
+    if(!victim_page){
+        //error
+    }
+    return victim_page;
+}
+
+/**
 * This method will be used to add an entry to the hardware TLB.
 * @author @InsideFra
 * @param vaddr The virtual address (0x00..) (even not aligned)
@@ -310,6 +340,7 @@ alloc_pages(unsigned npages, vaddr_t as_vbase)
             } else {
                 // TODO #7
                 for (unsigned int i = 0; i < npages; i++) {
+                    pt_counter++;
                     main_PG[first_valid+i].Valid = 1;
                     if (return_addr == 0) {
                         addr = (first_valid+i)*4096;
@@ -322,6 +353,7 @@ alloc_pages(unsigned npages, vaddr_t as_vbase)
                         return_addr = addr; 
                     }
                     main_PG[first_valid+i].page_number = as_vbase/PAGE_SIZE;
+                    main_PG[first_valid+i].victim_counter = pt_counter;
 
                     // DEBUG
                     char toPass = (char)(first_valid+i); 
@@ -417,3 +449,15 @@ int update_process_PG(struct process_PG* pPage, struct process_PG* data) {
     return 1;
 }
 
+/* LRU algorithm */
+int page_replacement(int page_num){
+	if(free_kpages((vaddr_t)(main_PG[page_num].page_number)*PAGE_SIZE)) {
+		return EINVAL;
+	}
+    return 0;
+}
+
+/* swap in func*/
+
+
+/* swap out func*/
