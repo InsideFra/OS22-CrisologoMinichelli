@@ -34,6 +34,7 @@
 #include <pt.h>
 #include <vm_tlb.h>
 #include <list.h>
+#include <current.h>
 
 extern _Bool VM_Started;
 
@@ -1244,7 +1245,7 @@ paddr_t alloc_kpages(unsigned npages) {
 	currentFrame = frame_list;
 	if (currentFrame == NULL) {
 		spinlock_release(&kmalloc_spinlock);
-		panic ("Error in alloc_kpages");
+		panic ("Error in alloc_kpages. No frame found in the frame list");
 		return 0;
 	}
 	FIFOSize = 1;
@@ -1316,13 +1317,18 @@ void free_kpages(paddr_t paddr) {
 
 	KASSERT(frame_index < PAGETABLE_ENTRY);
 
+	if (main_PG[frame_index].Valid == 0) {
+		panic("You're trying to free an already empty memory region");
+	}
+
+	if (main_PG[frame_index].pid != 0) { // Remove from the TLB only if is an user pages
+		if (removeTLB(main_PG[frame_index].page_number * 4096))
+			panic("Error in free_kpages during removeTLB()");
+	}
+
     main_PG[frame_index].Valid = 0;
 	main_PG[frame_index].pid = 0;
 	main_PG[frame_index].page_number = 0;
-
-	if (removeTLB(paddr)) {
-		return;
-	}
 
 	memset((void*)paddr, 0, PAGE_SIZE);
 	spinlock_release(&kmalloc_spinlock);

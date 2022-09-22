@@ -99,11 +99,11 @@ removeTLB(vaddr_t vaddr) {
 
         if(ehi == vaddr) {
             paddr = elo >> 12;
+            DEBUG(DB_VM, "(TLBremove): [%3d] PN: %x\tpAddr: 0x%x\t", i, vaddr >> 12, PADDR_TO_KVADDR(paddr));
+
             ehi = TLBHI_INVALID(i);
             elo = TLBLO_INVALID();
             tlb_write(ehi, elo, i);
-
-            DEBUG(DB_VM, "(TLBremove): [%3d] PN: %x\tpAddr: 0x%x\t", i, vaddr >> 12, PADDR_TO_KVADDR(paddr << 12));
             
             if( (elo & 0x00000fff) & TLBLO_DIRTY) {
                 DEBUG(DB_VM, "Dirty "); }
@@ -121,7 +121,7 @@ removeTLB(vaddr_t vaddr) {
             return 0;
         }
     }
-    DEBUG(DB_VM, "removeTLB Error: noEntryFound\n");
+    DEBUG(DB_VM, "removeTLB: noEntryFound\t(vAddr: 0x%x)\n", (uint32_t)vaddr);
     splx(spl);
-    return 1;
+    return 0;
 }

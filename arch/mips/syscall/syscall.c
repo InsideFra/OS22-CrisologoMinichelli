@@ -35,6 +35,7 @@
 #include <thread.h>
 #include <current.h>
 #include <syscall.h>
+#include <kern/unistd.h>
 
 
 /*
@@ -98,25 +99,40 @@ syscall(struct trapframe *tf)
 	 */
 
 	retval = 0;
-
+	//char buf[64];
 	switch (callno) {
 	    case SYS_reboot:
-		err = sys_reboot(tf->tf_a0);
+			err = sys_reboot(tf->tf_a0);
 		break;
 
 	    case SYS___time:
-		err = sys___time((userptr_t)tf->tf_a0,
-				 (userptr_t)tf->tf_a1);
+			err = sys___time((userptr_t)tf->tf_a0, (userptr_t)tf->tf_a1);
 		break;
 
 		case SYS__exit:
-		err = sys_exit();
+			err = sys__exit((int)tf->tf_a0);
+		break;
+
+		case SYS_write:
+			if (tf->tf_a0 == STDOUT_FILENO || STDERR_FILENO) {
+				kprintf("%s", (char*) tf->tf_a1);
+				err = 0;
+			}
+		break;
+
+		case SYS_read:
+			DEBUG(DB_VM,"Syscall: read(%d,%x,%d)\n",
+				(unsigned int) tf->tf_a0,(int) tf->tf_a1,(unsigned int) tf->tf_a2);
+			
+			while(1) {
+				//kgets(buf, sizeof(buf));
+			}
+			err = 0;
 		break;
 	    /* Add stuff here */
 
 	    default:
-		panic("Unknown syscall %d\n", callno);
-		err = ENOSYS;
+			err = sys__exit(1);
 		break;
 	}
 
