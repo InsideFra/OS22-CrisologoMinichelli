@@ -196,6 +196,7 @@ sys_reboot(int code)
 		break;
 	    case RB_POWEROFF:
 		kprintf("The system is halted.\n");
+		print_vm_stat();
 		mainbus_poweroff();
 		break;
 	}

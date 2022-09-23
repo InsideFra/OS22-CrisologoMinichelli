@@ -1,11 +1,11 @@
 /* code for tracking stats */
-
-void print_vm_stat(void);
+#include <vm.h>
+#include <lib.h>
 
 /* The number of TLB misses that have occurred (not including faults that cause a program to crash) */
 unsigned int TLB_Faults = 0; 
 
-/* The umber of TLB misses for which there was free space in the TLB to add the new TLB entry 
+/* The number of TLB misses for which there was free space in the TLB to add the new TLB entry 
 * (i.e., no replacement is required)
 */
 unsigned int TLB_Faults_wFree = 0;
@@ -37,5 +37,12 @@ unsigned int PF_Swapfile = 0;
 unsigned int SF_Writes = 0;
 
 void print_vm_stat(void) {
-    
+    kprintf("sys161: (a) TLB Faults: %d\n", TLB_Faults);
+    kprintf("sys161: (b) TLB misses with    free space in the TLB: %d\n", TLB_Faults_wFree);
+    kprintf("sys161: (c) TLB misses without free space in the TLB: %d\n", TLB_Faults_wReplace);
+    kprintf("sys161: (d) TLB misses with pages in memory: %d\n", TLB_Reloads);
+    kprintf("sys161: (e) TLB misses that required a page to be loaded from disk: %d\n", PF_Disk);
+    kprintf("sys161: (f) TLB misses that required a page to be loaded from the ELF  file: %d\n", PF_ELF);
+    kprintf("sys161: (g) TLB misses that required a page to be loaded from the swap file: %d\n", PF_Swapfile);
+    kprintf("sys161: (h) TLB misses that required a page to be loaded to   the swap file: %d\n", SF_Writes);
 }
