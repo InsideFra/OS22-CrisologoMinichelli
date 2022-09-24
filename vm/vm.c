@@ -116,7 +116,6 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	int result = 0;
 	int ret = 0;
 	uint32_t a, b, c, d;
-	_Bool inMemory = false;
 	switch (faulttype) {
 	    case VM_FAULT_READONLY:
 			// This fault happen when a program tries to write to a only-read segment.
@@ -186,10 +185,6 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 				} else if (is_dataSegment(faultaddress, as)) {
 					faultaddress &= PAGE_FRAME;
 					// Trying to write in a data segment which is not in RAM
-					
-					// we should check if it is in disk memory
-					/* inMemory = is_inMemory(fauladdress, pid) */
-					(void)(inMemory);
 
 					b = as->as_vbase_data & PAGE_FRAME ;
 					d = (faultaddress - b) >> 12;
@@ -211,7 +206,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 							/* Saving the frame in the disk memory
 							 * before freeing the frame
 							 */
-							swapOut(ret*PAGE_SIZE + MIPS_KSEG0);
+							swapOut((uint32_t*)(ret*PAGE_SIZE + MIPS_KSEG0));
 							break;
 						} else {
 							continue;
@@ -223,6 +218,8 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 						return EINVAL;
 					}
 
+										
+					// we should check if it is in disk memory
 					int p_num = faultaddress/PAGE_SIZE;
 					int index = swapfile_checkv1(p_num, curproc->pid);
 
@@ -269,10 +266,6 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 				if (is_dataSegment(faultaddress, as)) {
 					faultaddress &= PAGE_FRAME;
 					// Trying to write in a data segment which is not in RAM
-					
-					// we should check if it is in disk memory
-					/* inMemory = is_inMemory(fauladdress, pid) */
-					(void)(inMemory);
 
 					b = as->as_vbase_data & PAGE_FRAME ;
 					d = (faultaddress - b) >> 12;
@@ -294,7 +287,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 							/* Saving the frame in the disk memory
 							 * before freeing the frame
 							 */
-							swapOut(ret*PAGE_SIZE + MIPS_KSEG0);
+							swapOut((uint32_t*)(ret*PAGE_SIZE + MIPS_KSEG0));
 							break;
 						} else {
 							continue;
@@ -306,6 +299,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 						return EINVAL;
 					}
 
+					// we should check if it is in disk memory
 					int p_num = faultaddress/PAGE_SIZE;
 					int index = swapfile_checkv1(p_num, curproc->pid);
 

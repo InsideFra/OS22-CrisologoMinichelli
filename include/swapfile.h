@@ -25,6 +25,6 @@ int sf_listSearch(uint32_t page_num, pid_t pid);
 int sf_freeSearch(void);
 
 int swapIn(int index, uint32_t* RAM_address);
-int swapOut(uint32_t RAM_address);
+int swapOut(uint32_t* RAM_address);
 
 #endif /* _VM_H_ */
