@@ -324,7 +324,7 @@ load_elf(struct vnode *v, vaddr_t *entrypoint, vaddr_t start, uint32_t npages)
 				if(is_dataSegment(ph.p_vaddr, as)){
 					result = load_segment(as, v, ph.p_offset+(start-ph.p_vaddr), start,
 						npages*PAGE_SIZE, npages*PAGE_SIZE,
-						ph.p_flags);
+						ph.p_flags & PF_X);
 				}
 			}
 			

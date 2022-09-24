@@ -7,7 +7,7 @@
 #include <addrspace.h>
 #include <vm.h>
 
-#define SWAPSPACE       18*1024*1024
+#define SWAPSPACE       9*1024*1024
 #define SWAPFILE_SIZE   SWAPSPACE/4096  //max number of pages that can be swapped on disk
 
 struct list_param{

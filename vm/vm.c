@@ -85,6 +85,24 @@ void vm_bootstrap(void) {
 	swapfile_init();
 
     VM_Started = true;
+
+	// DEBUG SECTION
+	DEBUG(DB_VM, "VM: PG vLocation: 0x%x\tVM: PG pLocation: 0x%x\tVM: Entries: %u\tVM: Sizeof(Entry): %u\n", 
+			location, PADDR_TO_KVADDR(location), PAGETABLE_ENTRY, sizeof(struct invertedPT));
+	
+	kprintf("VM: %3uk physical memory available\n",
+		(RAM_Size)/1024);
+
+	kprintf("VM: %3uk physical memory used \tVM: %u used pages\n",
+		(RAM_FirstFree)/1024, (RAM_FirstFree)/PAGE_SIZE);
+
+	kprintf("VM: %3uk physical memory free\tVM: %u free pages\n", 
+			(location - RAM_FirstFree)/1024, (location - RAM_FirstFree)/PAGE_SIZE);
+
+	DEBUG(DB_VM, "VM: %3u pages used by the VM\n", 
+		(RAM_Size-location)/PAGE_SIZE);
+	
+	DEBUG(DB_VM, "\n");
 }
 
 #include <kern/fcntl.h>
@@ -365,6 +383,7 @@ void vm_tlbshootdown(const struct tlbshootdown *tlb) {
 
 /**
  * Used to allocate physical frame to user space.
+ * Also add the information in the page table
  * @param {uint} npages - Number of frame to allocated.
  * @param {vaddr} The virtual address that has to be mapped with the physical frame
  * @return 0 if everything ok.
@@ -383,6 +402,19 @@ paddr_t alloc_pages(uint8_t npages, vaddr_t vaddr) {
 		frame_index = (paddr - MIPS_KSEG0)/PAGE_SIZE;
 
 		addPT(frame_index, vaddr, pid);
+		//DEBUG
+		DEBUG(DB_VM, "(addPT    ): [%3d] PN: %x\tpAddr: 0x%x\t-%s-",
+		    frame_index, 
+		    main_PG[frame_index].page_number, 
+		    PADDR_TO_KVADDR(4096*(frame_index)), 
+		    main_PG[frame_index].Valid == 1 ? "V" : "N");
+		
+		if (main_PG[frame_index].Valid == 1)
+		    DEBUG(DB_VM, "%s-\t", main_PG[frame_index].pid == 0 ? "KERNEL" : "USER");
+		else 
+		    DEBUG(DB_VM,"\t");
+			
+		DEBUG(DB_VM, "\n");
 	}
 	return 0;
 }
