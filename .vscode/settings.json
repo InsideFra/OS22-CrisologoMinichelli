@@ -14,7 +14,8 @@
         "errno.h": "c",
         "unistd.h": "c",
         "*.tcc": "c",
-        "reboot.h": "c"
+        "reboot.h": "c",
+        "syscall.h": "c"
     },
     "C_Cpp.errorSquiggles": "Enabled"
 }

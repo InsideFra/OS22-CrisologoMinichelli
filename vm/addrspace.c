@@ -137,6 +137,8 @@ as_deactivate(void)
 	 */
 }
 
+extern uint32_t freeTLBEntries;
+
 /*
  * Set up a segment at virtual address VADDR of size MEMSIZE. The
  * segment in memory extends from VADDR up to (but not including)
@@ -177,19 +179,22 @@ as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize,
 				panic("Error during memory allocation. See alloc_kpages called by as_define_region.\n");
 			}
 			
-			// // Update TLB??
+			// Update TLB??
 			// DEBUG(DB_VM, "CODE SEGMENT: ");
-			// addTLB(as->as_vbase_code+i*PAGE_SIZE, pid, 0); // Dirty bit set to 0 as this is a read only segment
+			// if (freeTLBEntries)
+			// 	addTLB(as->as_vbase_code+i*PAGE_SIZE, curproc->pid, 0); // Dirty bit set to 0 as this is a read only segment
 		}
 		return 0;
 	} else {
 		// Not executable code
-		if (writeable) {
-			// Writable segment
+		if (!writeable) {
+			// Not Writable segment
+			panic ("Function not developed yet");
 		}
 
-		if (readable) {
-			// Readable segment
+		if (!readable) {
+			// Not Readable segment
+			panic ("Function not developed yet");
 		}
 
 		if (writeable && readable) {	// writable and readable
@@ -220,7 +225,8 @@ as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize,
 
 				// // Update TLB??
 				// DEBUG(DB_VM, "DATA SEGMENT: ");
-				// addTLB(as->as_vbase_data+i*PAGE_SIZE, pid, 1); // Dirty bit set to 1 as this is a writable segment
+				// if (freeTLBEntries)
+				// 	addTLB(as->as_vbase_data+i*PAGE_SIZE, curproc->pid, 1); // Dirty bit set to 1 as this is a writable segment
 			}
 			return 0;
 		}
