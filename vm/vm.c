@@ -68,6 +68,8 @@ void vm_bootstrap(void) {
 		}
 	}
 
+	kprintf("VM: Memory available starts from frame: %d until frame %d\n", RAM_FirstFree/PAGE_SIZE, PAGETABLE_ENTRY - (RAM_Size-location)/PAGE_SIZE - 1);
+	kprintf("VM: sizeof(invertedPT): %d bytes, entries: %d, total = %d bytes\n", sizeof(struct invertedPT), PAGETABLE_ENTRY, sizeof(struct invertedPT)*PAGETABLE_ENTRY);
 	//print_frame_list();
 	//print_page_table();
 
@@ -107,7 +109,13 @@ void vm_bootstrap(void) {
 
 #include <kern/fcntl.h>
 #include <vfs.h>
-
+extern unsigned int TLB_Faults; 
+extern unsigned int TLB_Reloads;
+extern unsigned int PF_Zeroed;
+extern unsigned int PF_ELF;
+extern unsigned int SF_Writes;
+extern unsigned int PF_Disk;
+extern unsigned int PF_Swapfile;
 /**
  * Usually called by mips_trap().
  * @param {int} faulttype - Fault code error.
@@ -134,6 +142,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	int result = 0;
 	int ret = 0;
 	uint32_t a, b, c, d;
+	TLB_Faults++; // If the program crashes, we should decrease this variable
 	switch (faulttype) {
 	    case VM_FAULT_READONLY:
 			// This fault happen when a program tries to write to a only-read segment.
@@ -197,8 +206,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 						vfs_close(v);
 						return result;
 					}
-					vfs_close(v);
 
+					PF_Disk++;
+					PF_ELF++;
+					vfs_close(v);
 					return 0;
 				} else if (is_dataSegment(faultaddress, as)) {
 					faultaddress &= PAGE_FRAME;
@@ -272,6 +283,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 				}
 				return EINVAL;
 			}
+			
+			faultaddress &= PAGE_FRAME;
+			TLB_Reloads++;
+			panic("Function not developed yet");
 			break;
 	    case VM_FAULT_WRITE:
 			ret = pageSearch(faultaddress);
@@ -305,7 +320,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 							/* Saving the frame in the disk memory
 							 * before freeing the frame
 							 */
-							swapOut((uint32_t*)(ret*PAGE_SIZE + MIPS_KSEG0));
+							swapOut((uint32_t*)(ret*PAGE_SIZE + MIPS_KSEG0)) {
+								panic("Something went wrong in swapOut() function");
+							}
+							SF_Writes++;
 							break;
 						} else {
 							continue;
@@ -327,6 +345,12 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 						return EINVAL;
 					}
 
+
+					/* Should we load from disk?
+					 * swapIn()
+					 */
+					PF_Disk++;
+					PF_Swapfile++;	
 					if (index >= 0) {
 						swapIn(index, (uint32_t*)result);
 					} else {
@@ -355,7 +379,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 			
 			if(addTLB(faultaddress, curproc->pid, 1))
 				return 1;
-
+			TLB_Reloads++;
 			return 0;
 			break;
 	    default:
