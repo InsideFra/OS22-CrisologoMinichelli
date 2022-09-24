@@ -61,9 +61,11 @@ struct addrspace {
 #else
         vaddr_t as_vbase_code;
         uint16_t as_npages_code;
+        uint16_t as_npages_code_loaded;
 
         vaddr_t as_vbase_data;
         uint16_t as_npages_data;
+        uint16_t as_npages_data_loaded;
 
         vaddr_t as_vbase_stack;
         uint16_t as_npages_stack;

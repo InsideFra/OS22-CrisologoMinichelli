@@ -87,6 +87,24 @@ void vm_bootstrap(void) {
 	swapfile_init();
 
     VM_Started = true;
+
+	// DEBUG SECTION
+	DEBUG(DB_VM, "VM: PG vLocation: 0x%x\tVM: PG pLocation: 0x%x\tVM: Entries: %u\tVM: Sizeof(Entry): %u\n", 
+			location, PADDR_TO_KVADDR(location), PAGETABLE_ENTRY, sizeof(struct invertedPT));
+	
+	kprintf("VM: %3uk physical memory available\n",
+		(RAM_Size)/1024);
+
+	kprintf("VM: %3uk physical memory used \tVM: %u used pages\n",
+		(RAM_FirstFree)/1024, (RAM_FirstFree)/PAGE_SIZE);
+
+	kprintf("VM: %3uk physical memory free\tVM: %u free pages\n", 
+			(location - RAM_FirstFree)/1024, (location - RAM_FirstFree)/PAGE_SIZE);
+
+	DEBUG(DB_VM, "VM: %3u pages used by the VM\n", 
+		(RAM_Size-location)/PAGE_SIZE);
+	
+	DEBUG(DB_VM, "\n");
 }
 
 #include <kern/fcntl.h>
@@ -124,7 +142,6 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	int result = 0;
 	int ret = 0;
 	uint32_t a, b, c, d;
-	_Bool inMemory = false;
 	TLB_Faults++; // If the program crashes, we should decrease this variable
 	switch (faulttype) {
 	    case VM_FAULT_READONLY:
@@ -136,7 +153,14 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 			break;
 	    case VM_FAULT_READ:
 			ret = pageSearch(faultaddress);
-			if (ret < 0) {
+			if (ret > 0) {
+				faultaddress &= PAGE_FRAME;
+				//ipanic("Function not developed yet");
+				if (addTLB(faultaddress, curproc->pid, 1)) {
+					return EINVAL;
+				}
+				return 0;
+			} else {
 				if (is_codeSegment(faultaddress, as)) {
 					faultaddress &= PAGE_FRAME;
 
@@ -182,72 +206,14 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 						vfs_close(v);
 						return result;
 					}
+
 					PF_Disk++;
 					PF_ELF++;
+					vfs_close(v);
 					return 0;
 				} else if (is_dataSegment(faultaddress, as)) {
 					faultaddress &= PAGE_FRAME;
-					// Trying to read from a data segment which is not in RAM
-					
-					// we should check if it is in disk memory
-					/* inMemory = is_inMemory(fauladdress, pid) */
-					(void)(inMemory);
-
-					b = as->as_vbase_data & PAGE_FRAME ;
-					d = (faultaddress - b) >> 12;
-					a = MAX_DATA_SEGMENT_PAGES;
-					c = (d%a);
-
-					for (unsigned int i = 0; i < (as->as_npages_data/MAX_DATA_SEGMENT_PAGES); i++) {
-						ret = pageSearch(b + c*PAGE_SIZE + i*(a*PAGE_SIZE));
-						if (ret != noEntryFound) {
-							// before freeing the page from the memory, we should save it?
-							free_kpages((paddr_t)(ret*PAGE_SIZE + MIPS_KSEG0));
-							break;
-						} else {
-							continue;
-						}
-					}
-
-					result = alloc_kpages(1);
-					
-					if (result == 0) {
-						return EINVAL;
-					}
-
-					addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid );
-
-					if (addTLB(faultaddress, curproc->pid, 0)) {
-						return EINVAL;
-					}
-
-					// we should load from disk?	
-					return 0;
-					
-					return EINVAL;
-				}
-				return EINVAL;
-			}
-			
-			faultaddress &= PAGE_FRAME;
-			TLB_Reloads++;
-			panic("Function not developed yet");
-			break;
-	    case VM_FAULT_WRITE:
-			ret = pageSearch(faultaddress);
-			if (ret < 0) {
-				// vAddress not loaded in the RAM Page Table
-				if (is_codeSegment(faultaddress, as)) {
-					faultaddress &= PAGE_FRAME;
-					panic ("You cannot write 0x%x, is a code segment.\n", faultaddress);
-				}
-				if (is_dataSegment(faultaddress, as)) {
-					faultaddress &= PAGE_FRAME;
 					// Trying to write in a data segment which is not in RAM
-					
-					// we should check if it is in disk memory
-					/* inMemory = is_inMemory(fauladdress, pid) */
-					(void)(inMemory);
 
 					b = as->as_vbase_data & PAGE_FRAME ;
 					d = (faultaddress - b) >> 12;
@@ -269,7 +235,92 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 							/* Saving the frame in the disk memory
 							 * before freeing the frame
 							 */
-							if(swapOut(ret*PAGE_SIZE + MIPS_KSEG0)) {
+							swapOut((uint32_t*)(ret*PAGE_SIZE + MIPS_KSEG0));
+							break;
+						} else {
+							continue;
+						}
+					}
+					result = alloc_kpages(1);
+
+					if (result == 0) {
+						return EINVAL;
+					}
+
+										
+					// we should check if it is in disk memory
+					int p_num = faultaddress/PAGE_SIZE;
+					int index = swapfile_checkv1(p_num, curproc->pid);
+
+
+					if (index >= 0) {
+						swapIn(index, (uint32_t*)result);
+					} else {
+						addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid );
+						if (addTLB(faultaddress, curproc->pid, 0)) {
+							return EINVAL;
+						}
+
+						/* Open the file. */
+						result = vfs_open(curproc->p_name, O_RDONLY, 0, &v);
+						if (result) {
+							return result;
+						}
+
+						/* Load 1 pages from the faultaddress. */
+						result = load_elf(v, &entrypoint, faultaddress, 1);
+						if (result) {
+							/* p_addrspace will go away when curproc is destroyed */
+							vfs_close(v);
+							return result;
+						}
+						vfs_close(v);
+
+					}
+
+					// we should load from disk?	
+					return 0;
+				}
+				return EINVAL;
+			}
+			
+			faultaddress &= PAGE_FRAME;
+			TLB_Reloads++;
+			panic("Function not developed yet");
+			break;
+	    case VM_FAULT_WRITE:
+			ret = pageSearch(faultaddress);
+			if (ret < 0) {
+				// vAddress not loaded in the RAM Page Table
+				if (is_codeSegment(faultaddress, as)) {
+					faultaddress &= PAGE_FRAME;
+					panic ("You cannot write 0x%x, is a code segment.\n", faultaddress);
+				}
+				if (is_dataSegment(faultaddress, as)) {
+					faultaddress &= PAGE_FRAME;
+					// Trying to write in a data segment which is not in RAM
+
+					b = as->as_vbase_data & PAGE_FRAME ;
+					d = (faultaddress - b) >> 12;
+					a = MAX_DATA_SEGMENT_PAGES;
+					c = (d%a);
+					
+					/*--------------------------------------------------*/	
+					//LRU algorithm
+					//victim_page = victim_pageSearch();
+					//if(page_swapOut(victim_page)){
+					//	page_replacement(victim_page);
+					//}
+
+					/*--------------------------------------------------*/	
+
+					for (unsigned int i = 0; i < (as->as_npages_data/MAX_DATA_SEGMENT_PAGES); i++) {
+						ret = pageSearch(b + c*PAGE_SIZE + i*(a*PAGE_SIZE));
+						if (ret != noEntryFound) {
+							/* Saving the frame in the disk memory
+							 * before freeing the frame
+							 */
+							swapOut((uint32_t*)(ret*PAGE_SIZE + MIPS_KSEG0)) {
 								panic("Something went wrong in swapOut() function");
 							}
 							SF_Writes++;
@@ -278,12 +329,15 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 							continue;
 						}
 					}
-
 					result = alloc_kpages(1);
-					
+
 					if (result == 0) {
 						return EINVAL;
 					}
+
+					// we should check if it is in disk memory
+					int p_num = faultaddress/PAGE_SIZE;
+					int index = swapfile_checkv1(p_num, curproc->pid);
 
 					addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid );
 
@@ -291,11 +345,33 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 						return EINVAL;
 					}
 
+
 					/* Should we load from disk?
 					 * swapIn()
 					 */
 					PF_Disk++;
 					PF_Swapfile++;	
+					if (index >= 0) {
+						swapIn(index, (uint32_t*)result);
+					} else {
+						/* Open the file. */
+						result = vfs_open(curproc->p_name, O_RDONLY, 0, &v);
+						if (result) {
+							return result;
+						}
+
+						/* Load 1 pages from the faultaddress. */
+						result = load_elf(v, &entrypoint, faultaddress, 1);
+						if (result) {
+							/* p_addrspace will go away when curproc is destroyed */
+							vfs_close(v);
+							return result;
+						}
+						vfs_close(v);
+
+					}
+
+					// we should load from disk?	
 					return 0;
 				}
 				return 1;
@@ -331,6 +407,7 @@ void vm_tlbshootdown(const struct tlbshootdown *tlb) {
 
 /**
  * Used to allocate physical frame to user space.
+ * Also add the information in the page table
  * @param {uint} npages - Number of frame to allocated.
  * @param {vaddr} The virtual address that has to be mapped with the physical frame
  * @return 0 if everything ok.
@@ -349,6 +426,19 @@ paddr_t alloc_pages(uint8_t npages, vaddr_t vaddr) {
 		frame_index = (paddr - MIPS_KSEG0)/PAGE_SIZE;
 
 		addPT(frame_index, vaddr, pid);
+		//DEBUG
+		DEBUG(DB_VM, "(addPT    ): [%3d] PN: %x\tpAddr: 0x%x\t-%s-",
+		    frame_index, 
+		    main_PG[frame_index].page_number, 
+		    PADDR_TO_KVADDR(4096*(frame_index)), 
+		    main_PG[frame_index].Valid == 1 ? "V" : "N");
+		
+		if (main_PG[frame_index].Valid == 1)
+		    DEBUG(DB_VM, "%s-\t", main_PG[frame_index].pid == 0 ? "KERNEL" : "USER");
+		else 
+		    DEBUG(DB_VM,"\t");
+			
+		DEBUG(DB_VM, "\n");
 	}
 	return 0;
 }

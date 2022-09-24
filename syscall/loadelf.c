@@ -293,14 +293,18 @@ load_elf(struct vnode *v, vaddr_t *entrypoint, vaddr_t start, uint32_t npages)
 		}
 
 		if (start == 0) {
-			if ((ph.p_flags & PF_X) == 1) { // code segment, executable
+			if (ph.p_vaddr == as->as_vbase_code) { // code segment
 				if (ph.p_filesz/(uint32_t)PAGE_SIZE > MAX_CODE_SEGMENT_PAGES) { // Demand paging
 					ph.p_memsz = MAX_CODE_SEGMENT_PAGES*PAGE_SIZE;
 				} else { // Not need for demand paging
 					
 				}
-			} else {
-				
+			} else if (ph.p_vaddr == as->as_vbase_data) { // data segment
+				if (ph.p_filesz/(uint32_t)PAGE_SIZE > MAX_DATA_SEGMENT_PAGES) { // Demand paging
+					ph.p_memsz = MAX_DATA_SEGMENT_PAGES*PAGE_SIZE;
+				} else { // Not need for demand paging
+
+				}
 			}
 		}
 
@@ -310,9 +314,20 @@ load_elf(struct vnode *v, vaddr_t *entrypoint, vaddr_t start, uint32_t npages)
 				ph.p_flags & PF_X);
 		} else {
 			// We want to load only a small part of the segment
-			result = load_segment(as, v, ph.p_offset+(start-ph.p_vaddr), start,
-					npages*PAGE_SIZE, npages*PAGE_SIZE,
-					ph.p_flags & PF_X);
+			if(is_codeSegment(start, as)){
+				if(is_codeSegment(ph.p_vaddr, as)){
+					result = load_segment(as, v, ph.p_offset+(start-ph.p_vaddr), start,
+						npages*PAGE_SIZE, npages*PAGE_SIZE,
+						ph.p_flags & PF_X);
+				}
+			} else if(is_dataSegment(start, as)){
+				if(is_dataSegment(ph.p_vaddr, as)){
+					result = load_segment(as, v, ph.p_offset+(start-ph.p_vaddr), start,
+						npages*PAGE_SIZE, npages*PAGE_SIZE,
+						ph.p_flags & PF_X);
+				}
+			}
+			
 			if (result) {
 				return result;
 			}
