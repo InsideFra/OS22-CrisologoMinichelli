@@ -48,6 +48,7 @@
 #include <device.h>
 #include <syscall.h>
 #include <test.h>
+#include <swapfile.h>
 #include <version.h>
 #include <syscall.h>
 #include <addrspace.h>
@@ -265,7 +266,7 @@ kmain(char *arguments)
 	// err = VOP_WRITE(v, &myuio);
 	// (void)err;
 	// vfs_close(v);
-	
+
 	menu(arguments);
 
 	/* Should not get here */

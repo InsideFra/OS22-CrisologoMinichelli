@@ -50,7 +50,25 @@ int swapfile_init(void){
     return 0;
 }
 
-int swapfile_check(uint8_t page_num, pid_t pid){
+
+int swapfile_checkv1(uint32_t page_num, pid_t pid){
+    //we have to check if the requested page is saved into swapfile
+    //off_t page_offset;
+    int index;
+    if((index = sf_pageSearch(page_num, pid)) < 0){
+	
+        /*--------------------PAGE NOT FOUND--------------------*/
+
+        return noEntryFound;
+    } else if(index >= 0){
+
+        /*--------------------PAGE FOUND--------------------*/
+		return index;
+	}
+    return noEntryFound;
+}
+
+int swapfile_check(uint32_t page_num, pid_t pid){
     //we have to check if the requested page is saved into swapfile
     //off_t page_offset;
     int index;
@@ -74,7 +92,7 @@ int swapfile_check(uint8_t page_num, pid_t pid){
             address = victim_page*PAGE_SIZE + MIPS_KSEG0;
             swapOut(address);
         }
-        if(swapIn(index, address)){
+        if(swapIn(index, (uint32_t*) address)){
             //error in swapping operation in RAM
             return -1;
         } else {
@@ -87,7 +105,7 @@ int swapfile_check(uint8_t page_num, pid_t pid){
 }
 
 
-int sf_pageSearch(uint8_t page_num, pid_t pid){
+int sf_pageSearch(uint32_t page_num, pid_t pid){
     for(uint32_t i = 0; i < SWAPFILE_SIZE; i++){
         if((page_num == sf_list->p_number) && (pid == sf_list->p_pid)){
             //page find in the swap list
@@ -112,7 +130,7 @@ int sf_freeSearch(void){
 }
 
 
-int swapIn(int index, uint32_t RAM_address){
+int swapIn(int index, uint32_t* RAM_address){
 	int result;
     int err;
     off_t offset;
@@ -127,7 +145,7 @@ int swapIn(int index, uint32_t RAM_address){
 		panic("ERROR in SWAPFILE opening operation\n"); 
 	}
 
-    uio_kinit(&iov, &sfuio, &RAM_address, PAGE_SIZE, offset, UIO_READ);
+    uio_kinit(&iov, &sfuio, RAM_address, PAGE_SIZE, offset, UIO_READ);
 	err = VOP_READ(v, &sfuio);
 	if (err) {
 		kprintf("%s: Read error: %s\n", filename, strerror(err));
@@ -136,10 +154,9 @@ int swapIn(int index, uint32_t RAM_address){
 	}
     //page copied
     vfs_close(v);
-    return 0;
 
     /*---------------------------------- PT LIST and TLB LIST UPDATE ------------------------------------*/
-    unsigned int pt_index = (RAM_address - MIPS_KSEG0)/PAGE_SIZE; 
+    unsigned int pt_index = ((uint32_t)RAM_address - MIPS_KSEG0)/PAGE_SIZE; 
     unsigned int vaddress = sf_list[index].p_number * PAGE_SIZE;
     pid_t pid = sf_list[index].p_pid;
     addPT(pt_index, vaddress, pid);
@@ -147,6 +164,8 @@ int swapIn(int index, uint32_t RAM_address){
     /*---------------------------------- SF LIST UPDATE -------------------------------------------------*/
     sf_list[index].p_number = 0; 
     sf_list[index].p_pid = 0; 
+    kprintf("swapIN: Index: %d, pAddr: 0x%x\n", index, (uint32_t)RAM_address);
+    return 0;
 }
 
 /**
@@ -192,6 +211,7 @@ int swapOut(uint32_t RAM_address){
 
     /*---------------------------------- PT LIST and TLB LIST UPDATE ------------------------------------*/
     free_kpages(RAM_address);
+    kprintf("swapOut: pAddr: 0x%x\n", RAM_address);
 
     return 0;
 }

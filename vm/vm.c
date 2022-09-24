@@ -129,7 +129,11 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 			ret = pageSearch(faultaddress);
 			if (ret > 0) {
 				faultaddress &= PAGE_FRAME;
-				panic("Function not developed yet");
+				//ipanic("Function not developed yet");
+				if (addTLB(faultaddress, curproc->pid, 1)) {
+					return EINVAL;
+				}
+				return 0;
 			} else {
 				if (is_codeSegment(faultaddress, as)) {
 					faultaddress &= PAGE_FRAME;
@@ -176,11 +180,12 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 						vfs_close(v);
 						return result;
 					}
+					vfs_close(v);
 
 					return 0;
 				} else if (is_dataSegment(faultaddress, as)) {
 					faultaddress &= PAGE_FRAME;
-					// Trying to read from a data segment which is not in RAM
+					// Trying to write in a data segment which is not in RAM
 					
 					// we should check if it is in disk memory
 					/* inMemory = is_inMemory(fauladdress, pid) */
@@ -190,34 +195,65 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 					d = (faultaddress - b) >> 12;
 					a = MAX_DATA_SEGMENT_PAGES;
 					c = (d%a);
+					
+					/*--------------------------------------------------*/	
+					//LRU algorithm
+					//victim_page = victim_pageSearch();
+					//if(page_swapOut(victim_page)){
+					//	page_replacement(victim_page);
+					//}
+
+					/*--------------------------------------------------*/	
 
 					for (unsigned int i = 0; i < (as->as_npages_data/MAX_DATA_SEGMENT_PAGES); i++) {
 						ret = pageSearch(b + c*PAGE_SIZE + i*(a*PAGE_SIZE));
 						if (ret != noEntryFound) {
-							// before freeing the page from the memory, we should save it?
-							free_kpages((paddr_t)(ret*PAGE_SIZE + MIPS_KSEG0));
+							/* Saving the frame in the disk memory
+							 * before freeing the frame
+							 */
+							swapOut(ret*PAGE_SIZE + MIPS_KSEG0);
 							break;
 						} else {
 							continue;
 						}
 					}
-
 					result = alloc_kpages(1);
-					
+
 					if (result == 0) {
 						return EINVAL;
 					}
 
-					addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid );
+					int p_num = faultaddress/PAGE_SIZE;
+					int index = swapfile_checkv1(p_num, curproc->pid);
 
-					if (addTLB(faultaddress, curproc->pid, 0)) {
-						return EINVAL;
+
+					if (index >= 0) {
+						swapIn(index, (uint32_t*)result);
+					} else {
+						addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid );
+						if (addTLB(faultaddress, curproc->pid, 0)) {
+							return EINVAL;
+						}
+
+						/* Open the file. */
+						result = vfs_open(curproc->p_name, O_RDONLY, 0, &v);
+						if (result) {
+							return result;
+						}
+
+						/* Load 1 pages from the faultaddress. */
+						result = load_elf(v, &entrypoint, faultaddress, 1);
+						if (result) {
+							/* p_addrspace will go away when curproc is destroyed */
+							vfs_close(v);
+							return result;
+						}
+						vfs_close(v);
+
 					}
 
 					// we should load from disk?	
 					return 0;
-					
-					return EINVAL;
 				}
 				return EINVAL;
 			}
@@ -264,17 +300,39 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 							continue;
 						}
 					}
-
 					result = alloc_kpages(1);
-					
+
 					if (result == 0) {
 						return EINVAL;
 					}
+
+					int p_num = faultaddress/PAGE_SIZE;
+					int index = swapfile_checkv1(p_num, curproc->pid);
 
 					addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid );
 
 					if (addTLB(faultaddress, curproc->pid, 0)) {
 						return EINVAL;
+					}
+
+					if (index >= 0) {
+						swapIn(index, (uint32_t*)result);
+					} else {
+						/* Open the file. */
+						result = vfs_open(curproc->p_name, O_RDONLY, 0, &v);
+						if (result) {
+							return result;
+						}
+
+						/* Load 1 pages from the faultaddress. */
+						result = load_elf(v, &entrypoint, faultaddress, 1);
+						if (result) {
+							/* p_addrspace will go away when curproc is destroyed */
+							vfs_close(v);
+							return result;
+						}
+						vfs_close(v);
+
 					}
 
 					// we should load from disk?	
