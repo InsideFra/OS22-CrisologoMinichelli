@@ -89,7 +89,7 @@ void vm_bootstrap(void) {
 
 	swapfile_init();
 
-    VM_Started = true;
+	VM_Started = true;
 
 	// DEBUG SECTION
 	DEBUG(DB_VM, "VM: PG vLocation: 0x%x\tVM: PG pLocation: 0x%x\tVM: Entries: %u\tVM: Sizeof(Entry): %u\n", 
@@ -352,13 +352,6 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 					int p_num = faultaddress/PAGE_SIZE;
 					int index = swapfile_checkv1(p_num, curproc->pid);
 
-					addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid );
-
-					if (addTLB(faultaddress, curproc->pid, 0)) {
-						return EINVAL;
-					}
-
-
 					/* Should we load from disk?
 					 * swapIn()
 					 */
@@ -367,6 +360,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 						swapIn(index, (uint32_t*)result);
 						PF_Swapfile++;	
 					} else {
+						addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid );
+						if (addTLB(faultaddress, curproc->pid, 0))
+							return EINVAL;
+
 						/* Open the file. */
 						result = vfs_open(curproc->p_name, O_RDONLY, 0, &v);
 						if (result) {
