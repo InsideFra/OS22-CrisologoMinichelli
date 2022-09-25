@@ -197,6 +197,7 @@ sys_reboot(int code)
 		break;
 	    case RB_POWEROFF:
 		kprintf("The system is halted.\n");
+		print_vm_stat();
 		mainbus_poweroff();
 		break;
 	}
@@ -232,41 +233,6 @@ kmain(char *arguments)
 	(void)arguments;
 	boot();
 	
-	// struct vnode *v;
-	// int result;
-	// char filename[] = "swapfile1";
-	// /* Open the file. */
-	// result = vfs_open(filename, O_RDWR | O_CREAT, 0, &v);
-	// if (result) {
-	// 	KASSERT(0);
-	// }
-	
-	// /* Usage example;
-	// * 	char buf[128];
-	// * 	struct iovec iov;
-	// * 	struct uio myuio;
-	// *
-	// * 	uio_kinit(&iov, &myuio, buf, sizeof(buf), 0, UIO_READ);
-	// *      result = VOP_READ(vn, &myuio);
-	// *      ...
-	// */
-	// char buffer_read[128];
-	// struct iovec iov;
-	// struct uio myuio;
-	// uio_kinit(&iov, &myuio, buffer_read, sizeof(buffer_read), 0, UIO_READ);
-	// result = VOP_READ(v, &myuio);
-	// if (result) {
-	// 	KASSERT(0);
-	// }
-	// kprintf(buffer_read);
-	// kprintf("\n");
-	// char buffer_write[128] = "Mario Draghi";
-	// int err;
-	// uio_kinit(&iov, &myuio, buffer_write, strlen(buffer_write), 5, UIO_WRITE);
-	// err = VOP_WRITE(v, &myuio);
-	// (void)err;
-	// vfs_close(v);
-
 	menu(arguments);
 
 	/* Should not get here */
