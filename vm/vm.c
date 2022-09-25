@@ -14,6 +14,8 @@
 #include <vm_tlb.h>
 #include <current.h>
 #include <swapfile.h>
+#include <kern/time.h>
+#include <clock.h>
 
 // This variables indicates if the vm has been initialized
 _Bool VM_Started = false;
@@ -89,7 +91,7 @@ void vm_bootstrap(void) {
 
 	swapfile_init();
 
-    VM_Started = true;
+	VM_Started = true;
 
 	// DEBUG SECTION
 	DEBUG(DB_VM, "VM: PG vLocation: 0x%x\tVM: PG pLocation: 0x%x\tVM: Entries: %u\tVM: Sizeof(Entry): %u\n", 
@@ -121,6 +123,7 @@ extern unsigned int PF_Disk;
 extern unsigned int PF_Swapfile;
 extern unsigned int TLB_Faults_wFree;
 extern unsigned int TLB_Faults_wReplace;
+
 /**
  * Usually called by mips_trap().
  * @param {int} faulttype - Fault code error.
@@ -130,9 +133,13 @@ extern unsigned int TLB_Faults_wReplace;
 int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
+	// Time stats
+	struct timespec before, after, duration;
+	gettime(&before);
+
 	struct addrspace *as;
 	//pid_t pid = curproc->pid;
-	
+
 	as = proc_getas();
 	if (as == NULL) {
 		/*
@@ -164,11 +171,15 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 			ret = pageSearch(faultaddress);
 			if (ret > 0) {
 				faultaddress &= PAGE_FRAME;
-				//ipanic("Function not developed yet");
 				if (addTLB(faultaddress, curproc->pid, 1)) {
 					return EINVAL;
 				}
 				TLB_Reloads++;
+				gettime(&after);
+				timespec_sub(&after, &before, &duration);
+				DEBUG(DB_TIME, "VM_FAULT_READ with Page present took %llu.%09lu seconds\n", 
+					(unsigned long long) duration.tv_sec,
+					(unsigned long) duration.tv_nsec);
 				return 0;
 			} else {
 				if (is_codeSegment(faultaddress, as)) {
@@ -352,13 +363,6 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 					int p_num = faultaddress/PAGE_SIZE;
 					int index = swapfile_checkv1(p_num, curproc->pid);
 
-					addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid );
-
-					if (addTLB(faultaddress, curproc->pid, 0)) {
-						return EINVAL;
-					}
-
-
 					/* Should we load from disk?
 					 * swapIn()
 					 */
@@ -367,6 +371,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 						swapIn(index, (uint32_t*)result);
 						PF_Swapfile++;	
 					} else {
+						addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid );
+						if (addTLB(faultaddress, curproc->pid, 0))
+							return EINVAL;
+
 						/* Open the file. */
 						result = vfs_open(curproc->p_name, O_RDONLY, 0, &v);
 						if (result) {
@@ -384,7 +392,11 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 						PF_ELF++;
 					}
 
-					// we should load from disk?	
+					gettime(&after);
+					timespec_sub(&after, &before, &duration);
+					DEBUG(DB_TIME, "VM_FAULT_WRITE with Page not present took %llu.%09lu seconds\n", 
+					(unsigned long long) duration.tv_sec,
+					(unsigned long) duration.tv_nsec);
 					return 0;
 				}
 				return 1;
@@ -393,6 +405,11 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 			if(addTLB(faultaddress, curproc->pid, 1))
 				return 1;
 			TLB_Reloads++;
+			gettime(&after);
+			timespec_sub(&after, &before, &duration);
+			DEBUG(DB_TIME, "VM_FAULT_WRITE with Page present took %llu.%09lu seconds\n", 
+					(unsigned long long) duration.tv_sec,
+					(unsigned long) duration.tv_nsec);
 			return 0;
 			break;
 	    default:
