@@ -6,6 +6,9 @@
 #include <spl.h>
 #include <lib.h>
 #include <kern/errno.h>
+#include <addrspace.h>
+#include <proc.h>
+#include <current.h>
 
 // We need to divide the physiical memory into fixed-sized blocks called FRAMES
 // Divide logical memory into blocks of same size called PAGES
@@ -110,27 +113,49 @@ int addPT(uint32_t frame_index, vaddr_t vaddr, uint32_t pid) {
 /**
 * This function allow to find the victim page inside RAM page table
 * @author @Marco_Embed
-* @param 
+* @param bool type: 0 code segment, 1 data segment
 * @date 20/09/2022
 * @return page number of victim page;
 */
-int victim_pageSearch(void){
+int victim_pageSearch(bool type){
     uint32_t min_value;
-    uint32_t victim_page = 0;
-    bool first_page;
+    int victim_page = noEntryFound;
+    bool first = true;
+    
     for(unsigned int i = 0; i < PAGETABLE_ENTRY; i++) {
-       if(i == first_page){
-            min_value = main_PG[i].victim_counter;
-            victim_page = main_PG[i].page_number;
-            first_page = 0;
-       } else if(min_value > main_PG[i].victim_counter){
-            min_value = main_PG[i].victim_counter;
-            victim_page = main_PG[i].page_number;
-       }
-    }
-
-    if(!victim_page){
-        //error
+        if(type == 0){
+            if(main_PG[i].pid == curproc->pid){
+                if(is_codeSegment(main_PG[i].page_number*PAGE_SIZE, proc_getas())){
+                    if(first){
+                        //first code page 
+                        min_value = main_PG[i].victim_counter;
+                        victim_page = i;
+                        first = false;
+                    } else if(min_value > main_PG[i].victim_counter){
+                        min_value = main_PG[i].victim_counter;
+                        victim_page = i;
+                    }
+                } else{
+                    continue;
+                }
+            }
+        } else if(type == 1){
+            if(main_PG[i].pid == curproc->pid){
+                if(is_dataSegment(main_PG[i].page_number*PAGE_SIZE, proc_getas())){
+                    if(first){
+                        //first data page 
+                        min_value = main_PG[i].victim_counter;
+                        victim_page = i;
+                        first = false;
+                    } else if(min_value > main_PG[i].victim_counter){
+                        min_value = main_PG[i].victim_counter;
+                        victim_page = i;
+                    }
+                } else{
+                    continue;
+                }
+            }
+        }
     }
     return victim_page;
 }

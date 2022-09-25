@@ -153,12 +153,20 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	vaddr_t entrypoint;
 	int result = 0;
 	int ret = 0;
-	uint32_t a, b, c, d;
+
 	TLB_Faults++; // If the program crashes, we should decrease this variable
 	if (freeTLBEntries)
 		TLB_Faults_wFree++;
 	else
 		TLB_Faults_wReplace++;
+
+	int index = 0;
+	bool code_seg = 0;
+	bool data_seg = 1;
+	int victim_page;
+	uint32_t paddress;
+	int p_num = faultaddress/PAGE_SIZE;
+
 	switch (faulttype) {
 	    case VM_FAULT_READONLY:
 			// This fault happen when a program tries to write to a only-read segment.
@@ -185,106 +193,20 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 				if (is_codeSegment(faultaddress, as)) {
 					faultaddress &= PAGE_FRAME;
 
-					// the TLB miss happened during a read to a code segment
-					// we can load this code segment from the ELF program file
-					b = as->as_vbase_data & PAGE_FRAME;
-					d = (faultaddress - b) >> 12;
-					a = MAX_CODE_SEGMENT_PAGES;
-					c = (d%a);
-
-					for (unsigned int i = 0; i < (as->as_npages_code/MAX_CODE_SEGMENT_PAGES); i++) {
-						ret = pageSearch(b + c*PAGE_SIZE + i*(a*PAGE_SIZE));
-						if (ret != noEntryFound) {
-							free_kpages((paddr_t)(ret*PAGE_SIZE + MIPS_KSEG0));
-							break;
-						} else {
-							continue;
+					index = swapfile_checkv1(p_num, curproc->pid);
+					if(index == noEntryFound){
+						/*---------------------------- LOAD FOR THE FIRST TIME -------------------*/
+						/*allocate page in PT*/
+						if(!(result = alloc_kpages(1))){
+						  //page table full, we have to free a page
+              victim_page = victim_pageSearch(data_seg);
+              paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;	
+							swapOut((uint32_t*)paddress);
+              SF_Writes++;
+							result = alloc_kpages(1);
 						}
-					}
 
-					result = alloc_kpages(1);
-					
-					if (result == 0) {
-						return EINVAL;
-					}
-
-					addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid );
-
-					if (addTLB(faultaddress, curproc->pid, 0)) {
-						return EINVAL;
-					}
-
-					/* Open the file. */
-					result = vfs_open(curproc->p_name, O_RDONLY, 0, &v);
-					if (result) {
-						return result;
-					}
-
-					/* Load 1 pages from the faultaddress. */
-					result = load_elf(v, &entrypoint, faultaddress, 1);
-					if (result) {
-						/* p_addrspace will go away when curproc is destroyed */
-						vfs_close(v);
-						return result;
-					}
-
-					PF_Disk++;
-					PF_ELF++;
-					vfs_close(v);
-					return 0;
-				} else if (is_dataSegment(faultaddress, as)) {
-					faultaddress &= PAGE_FRAME;
-					// Trying to write in a data segment which is not in RAM
-
-					b = as->as_vbase_data & PAGE_FRAME ;
-					d = (faultaddress - b) >> 12;
-					a = MAX_DATA_SEGMENT_PAGES;
-					c = (d%a);
-					
-					/*--------------------------------------------------*/	
-					//LRU algorithm
-					//victim_page = victim_pageSearch();
-					//if(page_swapOut(victim_page)){
-					//	page_replacement(victim_page);
-					//}
-
-					/*--------------------------------------------------*/	
-
-					for (unsigned int i = 0; i < (as->as_npages_data/MAX_DATA_SEGMENT_PAGES); i++) {
-						ret = pageSearch(b + c*PAGE_SIZE + i*(a*PAGE_SIZE));
-						if (ret != noEntryFound) {
-							/* Saving the frame in the disk memory
-							 * before freeing the frame
-							 */
-							swapOut((uint32_t*)(ret*PAGE_SIZE + MIPS_KSEG0));
-							SF_Writes++;
-							break;
-						} else {
-							continue;
-						}
-					}
-					result = alloc_kpages(1);
-
-					if (result == 0) {
-						return EINVAL;
-					}
-
-										
-					// we should check if it is in disk memory
-					int p_num = faultaddress/PAGE_SIZE;
-					int index = swapfile_checkv1(p_num, curproc->pid);
-
-
-					if (index >= 0) {
-						swapIn(index, (uint32_t*)result);
-						PF_Disk++;
-						PF_Swapfile++;
-					} else {
 						addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid );
-						if (addTLB(faultaddress, curproc->pid, 0)) {
-							return EINVAL;
-						}
-
 						/* Open the file. */
 						result = vfs_open(curproc->p_name, O_RDONLY, 0, &v);
 						if (result) {
@@ -299,11 +221,68 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 							return result;
 						}
 						vfs_close(v);
-						PF_ELF++;
-						PF_Disk++;
+            PF_Disk++;
+					  PF_ELF++;
+					} else {
+						/*---------------------------- SWAP IN NEEDED ---------------------------*/
+              victim_page = victim_pageSearch(code_seg);
+              paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;
+              if(swapOut((uint32_t*)paddress) == 0){
+                SF_Writes++;
+                swapIn(index);
+						    PF_Swapfile++;
+              }
 					}
 
-					// we should load from disk?	
+					vfs_close(v);
+          PF_Disk++;
+					PF_ELF++;
+					return 0;
+				} else if (is_dataSegment(faultaddress, as)) {
+					faultaddress &= PAGE_FRAME;
+					// Trying to write in a data segment which is not in RAM
+					index = swapfile_checkv1(p_num, curproc->pid);
+					if(index == noEntryFound){
+						/*---------------------------- LOAD FOR THE FIRST TIME -------------------*/
+						/*allocate page in PT*/
+						if(!(result = alloc_kpages(1))){
+							//page table full, we have to free a page
+              victim_page = victim_pageSearch(data_seg);
+              paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;	
+							swapOut((uint32_t*)paddress);
+              SF_Writes++;
+							result = alloc_kpages(1);
+						}
+            
+						addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid );
+						/* Open the file. */
+						result = vfs_open(curproc->p_name, O_RDONLY, 0, &v);
+						if (result) {
+							return result;
+						}
+
+						/* Load 1 pages from the faultaddress. */
+						result = load_elf(v, &entrypoint, faultaddress, 1);
+						if (result) {
+							/* p_addrspace will go away when curproc is destroyed */
+							vfs_close(v);
+							return result;
+						}
+						vfs_close(v);
+            PF_ELF++;
+						PF_Disk++;
+					} else {
+						/*---------------------------- SWAP IN NEEDED ---------------------------*/
+              victim_page = victim_pageSearch(data_seg);
+              paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;
+              if(swapOut((uint32_t*)paddress) == 0){
+                PF_Writes++;
+							  swapIn(index);
+                PF_Swapfile++;
+                return 0;
+					    }
+              return 1;
+          }
 					return 0;
 				}
 				return EINVAL;
@@ -313,6 +292,9 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 			return 1;
 			break;
 	    case VM_FAULT_WRITE:
+			// search TLB missing page in Page Table
+			// ret < 0 => Not found in PT => (page loaded for the first time) || (check swapfile)
+			// ret >= 0 => Found in PT
 			ret = pageSearch(faultaddress);
 			if (ret < 0) {
 				// vAddress not loaded in the RAM Page Table
@@ -323,57 +305,23 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 				if (is_dataSegment(faultaddress, as)) {
 					faultaddress &= PAGE_FRAME;
 					// Trying to write in a data segment which is not in RAM
+          
+					/*---------------------------- CHECK SWAPFILE --------------------------------*/
 
-					b = as->as_vbase_data & PAGE_FRAME ;
-					d = (faultaddress - b) >> 12;
-					a = MAX_DATA_SEGMENT_PAGES;
-					c = (d%a);
-					
-					/*--------------------------------------------------*/	
-					//LRU algorithm
-					//victim_page = victim_pageSearch();
-					//if(page_swapOut(victim_page)){
-					//	page_replacement(victim_page);
-					//}
-
-					/*--------------------------------------------------*/	
-
-					for (unsigned int i = 0; i < (as->as_npages_data/MAX_DATA_SEGMENT_PAGES); i++) {
-						ret = pageSearch(b + c*PAGE_SIZE + i*(a*PAGE_SIZE));
-						if (ret != noEntryFound) {
-							/* Saving the frame in the disk memory
-							 * before freeing the frame
-							 */
-							if (swapOut((uint32_t*)(ret*PAGE_SIZE + MIPS_KSEG0))) {
-								panic("Something went wrong in swapOut() function");
-							}
-							SF_Writes++;
-							break;
-						} else {
-							continue;
+					index = swapfile_checkv1(p_num, curproc->pid);
+					if(index == noEntryFound){
+						/*---------------------------- LOAD FOR THE FIRST TIME -------------------*/
+						/*allocate page in PT*/
+						if(!(result = alloc_kpages(1))){
+							//page table full, we have to free a page
+              victim_page = victim_pageSearch(data_seg);
+              paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;	
+							swapOut((uint32_t*)paddress);
+              PF_Writes++;
+							result = alloc_kpages(1);
 						}
-					}
-					result = alloc_kpages(1);
 
-					if (result == 0) {
-						return EINVAL;
-					}
-
-					// we should check if it is in disk memory
-					int p_num = faultaddress/PAGE_SIZE;
-					int index = swapfile_checkv1(p_num, curproc->pid);
-
-					/* Should we load from disk?
-					 * swapIn()
-					 */
-					PF_Disk++;
-					if (index >= 0) {
-						swapIn(index, (uint32_t*)result);
-						PF_Swapfile++;	
-					} else {
 						addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid );
-						if (addTLB(faultaddress, curproc->pid, 0))
-							return EINVAL;
 
 						/* Open the file. */
 						result = vfs_open(curproc->p_name, O_RDONLY, 0, &v);
@@ -390,6 +338,14 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 						}
 						vfs_close(v);
 						PF_ELF++;
+            PF_Disk++;
+					} else {
+						/*---------------------------- SWAP IN NEEDED ---------------------------*/
+              victim_page = victim_pageSearch(data_seg);
+              paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;
+              if(swapOut((uint32_t*)paddress) == 0){
+							  swapIn(index);
+						  }
 					}
 
 					gettime(&after);

@@ -27,5 +27,5 @@ int pageSearch(vaddr_t addr);
 
 int addPT(uint32_t frame_index, vaddr_t vaddr, uint32_t pid);
 
-int victim_pageSearch(void);
+int victim_pageSearch(bool type);
 int page_replacement(int page_num);
