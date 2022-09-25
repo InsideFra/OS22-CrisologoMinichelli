@@ -10,8 +10,6 @@
 extern unsigned int PAGETABLE_ENTRY;
 extern struct invertedPT (*main_PG);
 uint32_t freeTLBEntries = 0;
-
-
 /**
 * This method is used to add an entry to the hardware TLB.
 *
@@ -75,7 +73,8 @@ addTLB(vaddr_t vaddr, pid_t pid, _Bool Dirty) {
                 panic("Generic TLB Error\n");
             }
 
-            DEBUG(DB_VM, "(TLBwrite ): [%3d] PN: %x\tpAddr: 0x%x\n", tlb_index_probe, ehi >> 12, paddr);
+            DEBUG(DB_TLB, "(TLBwrite ): [%3d] PN: %x\tpAddr: 0x%x\n", tlb_index_probe, ehi >> 12, paddr);
+
             freeTLBEntries--;;
 
             splx(spl);
@@ -93,7 +92,8 @@ addTLB(vaddr_t vaddr, pid_t pid, _Bool Dirty) {
         panic("Generic TLB Error\n");
     }
 
-    DEBUG(DB_VM, "(TLBreplac): [%3d] PN: %x\tpAddr: 0x%x\n", tlb_index_probe, ehi >> 12, paddr);
+    DEBUG(DB_TLB, "(TLBreplac): [%3d] PN: %x\tpAddr: 0x%x\n", tlb_index_probe, ehi >> 12, paddr);
+
     freeTLBEntries--;;
 
     splx(spl);
@@ -122,7 +122,7 @@ removeTLB(vaddr_t vaddr) {
 
         if(ehi == vaddr) {
             paddr = elo >> 12;
-            DEBUG(DB_VM, "(TLBremove): [%3d] PN: %x\tpAddr: 0x%x\t", i, vaddr >> 12, PADDR_TO_KVADDR(paddr));
+            DEBUG(DB_TLB, "(TLBremove): [%3d] PN: %x\tpAddr: 0x%x\t", i, vaddr >> 12, PADDR_TO_KVADDR(paddr));
             freeTLBEntries++;
 
             ehi = TLBHI_INVALID(i);
@@ -130,22 +130,22 @@ removeTLB(vaddr_t vaddr) {
             tlb_write(ehi, elo, i);
             
             if( (elo & 0x00000fff) & TLBLO_VALID) {
-                DEBUG(DB_VM, "-N- "); }
+                DEBUG(DB_TLB, "-N- "); }
             else {
-                DEBUG(DB_VM, "-V- "); }
+                DEBUG(DB_TLB, "-V- "); }
 
             if( (elo & 0x00000fff) & TLBLO_DIRTY) {
-                DEBUG(DB_VM, "D   -"); }
+                DEBUG(DB_TLB, "D   -"); }
             else {
-                DEBUG(DB_VM, "-ND  -"); }
+                DEBUG(DB_TLB, "-ND  -"); }
             
-            DEBUG(DB_VM, "\n");
+            DEBUG(DB_TLB, "\n");
             
             splx(spl);
             return 0;
         }
     }
-    DEBUG(DB_VM, "removeTLB: noEntryFound\t(vAddr: 0x%x)\n", (uint32_t)vaddr);
+    DEBUG(DB_TLB, "removeTLB: noEntryFound\t(vAddr: 0x%x)\n", (uint32_t)vaddr);
     splx(spl);
     return 0;
 }

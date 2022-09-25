@@ -137,6 +137,8 @@ as_deactivate(void)
 	 */
 }
 
+extern uint32_t freeTLBEntries;
+
 /*
  * Set up a segment at virtual address VADDR of size MEMSIZE. The
  * segment in memory extends from VADDR up to (but not including)
@@ -151,27 +153,24 @@ int
 as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize, 
 					int readable, int writeable, int executable) 
 {
-	pid_t pid = curproc->pid;
-	uint32_t max_load = 0; // the number of pages loaded in the physical memory
 	if (executable) {
 		// We are now loading a CODE segment
 		as->as_vbase_code = vaddr; 				// We store the first virtual address of the code segment 
-		as->as_npages_code = memsize/4096 + 1;	// We store how many pages would require the code segment
+		as->as_npages_code = memsize/PAGE_SIZE + 1;	// We store how many pages would require the code segment
 		
-		// DEBUG
-		DEBUG(DB_VM, "\nCODE SEGMENT: start vAddr: 0x%x, size: %u pages: %u\n", 
-			as->as_vbase_code, memsize, as->as_npages_code);
-		
+		// START DEBUG SECTION
+		DEBUG(DB_VM, "\nCODE SEGMENT: start vAddr: 0x%x, size: %u pages: %u\n",  as->as_vbase_code, memsize, as->as_npages_code);
 		if (as->as_npages_code > MAX_CODE_SEGMENT_PAGES) {
 			DEBUG(DB_VM, "CODE SEGMENT: Demand Paging Activate\n");
-			max_load = MAX_CODE_SEGMENT_PAGES;
+			as->as_npages_code_loaded = MAX_CODE_SEGMENT_PAGES;
 		}
 	    else {
 			DEBUG(DB_VM, "CODE SEGMENT: Demand Paging not needed in this case\n");
-			max_load = as->as_npages_code;
+			as->as_npages_code_loaded = as->as_npages_code;
 		}
+		// END DEBUG SECTION
 		
-		for (unsigned int i = 0; i < max_load; i++) {
+		for (unsigned int i = 0; i < as->as_npages_code_loaded; i++) {
 			// Virtualizzation
 			// For each code page, allocate a physical frame and associate it to a page.
 			DEBUG(DB_VM, "CODE SEGMENT: ");
@@ -181,37 +180,41 @@ as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize,
 			}
 			
 			// Update TLB??
-			DEBUG(DB_VM, "CODE SEGMENT: ");
-			addTLB(as->as_vbase_code+i*PAGE_SIZE, pid, 0); // Dirty bit set to 0 as this is a read only segment
+			// DEBUG(DB_VM, "CODE SEGMENT: ");
+			// if (freeTLBEntries)
+			// 	addTLB(as->as_vbase_code+i*PAGE_SIZE, curproc->pid, 0); // Dirty bit set to 0 as this is a read only segment
 		}
 		return 0;
 	} else {
 		// Not executable code
-		if (writeable) {
-			// Writable segment
+		if (!writeable) {
+			// Not Writable segment
+			panic ("Function not developed yet");
 		}
 
-		if (readable) {
-			// Readable segment
+		if (!readable) {
+			// Not Readable segment
+			panic ("Function not developed yet");
 		}
 
 		if (writeable && readable) {	// writable and readable
 			// We are now loading a DATA segment 	
 			as->as_vbase_data = vaddr;				// We store the first virtual address of the data segment 
-			as->as_npages_data = memsize/4096 + 1;	// We store how many pages would require the data segment
+			as->as_npages_data = memsize/PAGE_SIZE + 1;	// We store how many pages would require the data segment
 			
-			// DEBUG
-			DEBUG(DB_VM, "\nDATA SEGMENT: start vAddr: 0x%x, size: %u pages: %u\n", 
-				as->as_vbase_data, memsize, as->as_npages_data);
+			// START DEBUG SECTION
+			DEBUG(DB_VM, "\nDATA SEGMENT: start vAddr: 0x%x, size: %u pages: %u\n", as->as_vbase_data, memsize, as->as_npages_data);
 			if (as->as_npages_data > MAX_DATA_SEGMENT_PAGES) { 
 				DEBUG(DB_VM, "DATA SEGMENT: Demand Paging Activate\n");
-				max_load = MAX_DATA_SEGMENT_PAGES; }
+				as->as_npages_data_loaded = MAX_PAGES_PER_PROCESS - (as->as_npages_code_loaded - MAX_STACK_SEGMENT_PAGES); 
+			}
 			else {
 				DEBUG(DB_VM, "DATA SEGMENT: Demand Paging not needed in this case\n");
-				max_load = as->as_npages_data;
+				as->as_npages_data_loaded = as->as_npages_data;
 			}
+			// END DEBUG SECTION
 			
-			for (unsigned int i = 0; i < max_load; i++) {
+			for (unsigned int i = 0; i < as->as_npages_data_loaded; i++) {
 				
 				// Virtualizzation
 				DEBUG(DB_VM, "DATA SEGMENT: ");
@@ -220,9 +223,10 @@ as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize,
 					panic("Error during memory allocation. See alloc_kpages called by as_define_region.\n");
 				}
 
-				// Update TLB??
-				DEBUG(DB_VM, "DATA SEGMENT: ");
-				addTLB(as->as_vbase_data+i*PAGE_SIZE, pid, 1); // Dirty bit set to 1 as this is a writable segment
+				// // Update TLB??
+				// DEBUG(DB_VM, "DATA SEGMENT: ");
+				// if (freeTLBEntries)
+				// 	addTLB(as->as_vbase_data+i*PAGE_SIZE, curproc->pid, 1); // Dirty bit set to 1 as this is a writable segment
 			}
 			return 0;
 		}
@@ -244,22 +248,18 @@ int
 as_prepare_load(struct addrspace *as)
 {
 	paddr_t addr = 0;
-	DEBUG(DB_VM, "\nCODE: vAddr = 0x%x\t\n",
-		as->as_vbase_code);
+	DEBUG(DB_VM, "\nCODE: vAddr = 0x%x\t Pages Allocated: %d\n", as->as_vbase_code, 
+		((as->as_npages_code > MAX_CODE_SEGMENT_PAGES) ? MAX_CODE_SEGMENT_PAGES : as->as_npages_code));
 
 	DEBUG(DB_VM, "\nDATA: vAddr = 0x%x\t\n",
 		as->as_vbase_data);
 
 	as->as_vbase_stack = as->as_vbase_data + PAGE_SIZE*as->as_npages_data;
-	addr = alloc_kpages(1); // By now we just allocate one page for the stack. Later if needed, the kernel will use more pages
-	if (addr == 0) {
+	addr = alloc_pages(1, as->as_vbase_stack); // By now we just allocate one page for the stack. Later if needed, the kernel will use more pages
+	if (addr) {
 		panic ("Error while as_prepare_load()");
 		return ENOMEM;
 	}
-
-	uint32_t frame_index = (addr-MIPS_KSEG0)/PAGE_SIZE;
-
-	addPT(frame_index, as->as_vbase_stack, 1);
 	
 	DEBUG(DB_VM, "\nSTACK: vAddr = 0x%x\t\n",
 		as->as_vbase_stack);
