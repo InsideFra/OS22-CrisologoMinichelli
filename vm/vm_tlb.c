@@ -9,6 +9,8 @@
 
 extern unsigned int PAGETABLE_ENTRY;
 extern struct invertedPT (*main_PG);
+uint32_t freeTLBEntries = 0;
+
 
 /**
 * This method is used to add an entry to the hardware TLB.
@@ -74,14 +76,33 @@ addTLB(vaddr_t vaddr, pid_t pid, _Bool Dirty) {
             }
 
             DEBUG(DB_VM, "(TLBwrite ): [%3d] PN: %x\tpAddr: 0x%x\n", tlb_index_probe, ehi >> 12, paddr);
+            freeTLBEntries--;;
 
             splx(spl);
             return 0;
         }
     }
+     
+    ehi = vaddr & PAGE_FRAME; // PAGE ALIGN
+    pa = paddr - MIPS_KSEG0;
+    elo = pa | TLBLO_VALID | TLBLO_DIRTY;
+    tlb_random(ehi, elo);
+
+    tlb_index_probe = tlb_probe(ehi, elo); 
+    if (tlb_index_probe < 0) {
+        panic("Generic TLB Error\n");
+    }
+
+    DEBUG(DB_VM, "(TLBreplac): [%3d] PN: %x\tpAddr: 0x%x\n", tlb_index_probe, ehi >> 12, paddr);
+    freeTLBEntries--;;
+
+    splx(spl);
+    return 0;
+
+    // Yiu should not get here
+    panic("No tlb entry available\n");
     return 1;
 }
-
 /**
 * This method is used to remove an entry to the hardware TLB.
 * @author @InsideFra
@@ -102,6 +123,7 @@ removeTLB(vaddr_t vaddr) {
         if(ehi == vaddr) {
             paddr = elo >> 12;
             DEBUG(DB_VM, "(TLBremove): [%3d] PN: %x\tpAddr: 0x%x\t", i, vaddr >> 12, PADDR_TO_KVADDR(paddr));
+            freeTLBEntries++;
 
             ehi = TLBHI_INVALID(i);
             elo = TLBLO_INVALID();

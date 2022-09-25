@@ -15,6 +15,8 @@ for managing and manipulating the swapfile */
 #include <vfs.h>
 #include <vnode.h>
 #include <uio.h>
+#include <vm_tlb.h>
+#include <current.h>
 
 struct list_param sf_list[SWAPFILE_SIZE];   
 struct lock *sf_lock;
@@ -68,41 +70,41 @@ int swapfile_checkv1(uint32_t page_num, pid_t pid){
     return noEntryFound;
 }
 
-int swapfile_check(uint32_t page_num, pid_t pid){
-    //we have to check if the requested page is saved into swapfile
-    //off_t page_offset;
-    int index;
-    uint32_t address;
-    uint32_t victim_page;
-    if((index = sf_pageSearch(page_num, pid)) < 0){
-
-        /*--------------------PAGE NOT FOUND--------------------*/
-
-        return 1;
-    } else if(index >= 0){
-
-        /*--------------------PAGE FOUND------------------------*/
-
-        //before swap-in operation, we need to check if there is space in RAM
-            //address can be:
-            // 0 => no space in RAM, swapOut operation is needed
-            // >0 => slot available in RAM, "address" is the address in RAM where we can store swapped page from DISK 
-        if(!(address = alloc_kpages(1))){
-            victim_page = victim_pageSearch();
-            address = victim_page*PAGE_SIZE + MIPS_KSEG0;
-            swapOut((uint32_t*)address);
-        }
-        if(swapIn(index, (uint32_t*) address)){
-            //error in swapping operation in RAM
-            return -1;
-        } else {
-            //page copied in RAM
-            return 0;
-        }
-
-    }
-    return 1;
-}
+//int swapfile_check(uint32_t page_num, pid_t pid){
+//    //we have to check if the requested page is saved into swapfile
+//    //off_t page_offset;
+//    int index;
+//    uint32_t address;
+//    uint32_t victim_page;
+//    if((index = sf_pageSearch(page_num, pid)) < 0){
+//
+//        /*--------------------PAGE NOT FOUND--------------------*/
+//
+//        return noEntryFound;
+//    } else if(index >= 0){
+//
+//        /*--------------------PAGE FOUND------------------------*/
+//
+//        //before swap-in operation, we need to check if there is space in RAM
+//            //address can be:
+//            // 0 => no space in RAM, swapOut operation is needed
+//            // >0 => slot available in RAM, "address" is the address in RAM where we can store swapped page from DISK 
+//        if(!(address = alloc_kpages(1))){
+//            victim_page = victim_pageSearch();
+//            address = victim_page*PAGE_SIZE + MIPS_KSEG0;
+//            swapOut((uint32_t*)address);
+//        }
+//        if(swapIn(index, (uint32_t*) address)){
+//            //error in swapping operation in RAM
+//            return -1;
+//        } else {
+//            //page copied in RAM
+//            return 0;
+//        }
+//
+//    }
+//    return 1;
+//}
 
 
 int sf_pageSearch(uint32_t page_num, pid_t pid){
@@ -130,7 +132,8 @@ int sf_freeSearch(void){
 }
 
 
-int swapIn(int index, uint32_t* RAM_address){
+int swapIn(int index){
+	int RAM_address;
 	int result;
     int err;
     off_t offset;
@@ -139,13 +142,28 @@ int swapIn(int index, uint32_t* RAM_address){
     struct iovec iov;
     struct uio sfuio;
 
+    /*---------------------------------- PT LIST and TLB LIST UPDATE ------------------------------------*/
+	if(!(RAM_address = alloc_kpages(1))){
+        panic("swapIn not allowed!\n");
+	}
+
+    unsigned int pt_index = ((uint32_t)RAM_address - MIPS_KSEG0)/PAGE_SIZE; 
+    unsigned int vaddress = sf_list[index].p_number * PAGE_SIZE;
+    pid_t pid = sf_list[index].p_pid;
+    if(addPT(pt_index, vaddress, pid)){
+    	return EINVAL;
+    }
+    if(addTLB(vaddress, pid, 0)){
+    	return EINVAL;
+    }
+
     offset = sf_list[index].p_offset*PAGE_SIZE; 
 
 	if((result = vfs_open(filename, O_RDWR, 0, &v))>0){
 		panic("ERROR in SWAPFILE opening operation\n"); 
 	}
 
-    uio_kinit(&iov, &sfuio, RAM_address, PAGE_SIZE, offset, UIO_READ);
+    uio_kinit(&iov, &sfuio, (uint32_t *)RAM_address, PAGE_SIZE, offset, UIO_READ);
 	err = VOP_READ(v, &sfuio);
 	if (err) {
 		kprintf("%s: Read error: %s\n", filename, strerror(err));
@@ -154,12 +172,6 @@ int swapIn(int index, uint32_t* RAM_address){
 	}
     //page copied
     vfs_close(v);
-
-    /*---------------------------------- PT LIST and TLB LIST UPDATE ------------------------------------*/
-    unsigned int pt_index = ((uint32_t)RAM_address - MIPS_KSEG0)/PAGE_SIZE; 
-    unsigned int vaddress = sf_list[index].p_number * PAGE_SIZE;
-    pid_t pid = sf_list[index].p_pid;
-    addPT(pt_index, vaddress, pid);
 
     /*---------------------------------- SF LIST UPDATE -------------------------------------------------*/
     sf_list[index].p_number = 0; 

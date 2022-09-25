@@ -1247,7 +1247,6 @@ paddr_t alloc_kpages(unsigned npages) {
 	currentFrame = frame_list;
 	if (currentFrame == NULL) {
 		spinlock_release(&kmalloc_spinlock);
-		panic ("Error in alloc_kpages. No frame found in the frame list");
 		return 0;
 	}
 	FIFOSize = 1;
