@@ -34,6 +34,7 @@ struct RAM_PG_ {
     uint32_t clock;
     uint32_t pid;
     uint32_t page_number;
+    uint32_t victim_counter;
 };
 
 struct frame_list_struct {

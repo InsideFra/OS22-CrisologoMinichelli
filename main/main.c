@@ -44,6 +44,7 @@
 #include <synch.h>
 #include <vm.h>
 #include <mainbus.h>
+#include <kern/fcntl.h>
 #include <vfs.h>
 #include <device.h>
 #include <syscall.h>
@@ -128,6 +129,7 @@ boot(void)
 	vm_bootstrap();
 	kprintf_bootstrap();
 	thread_start_cpus();
+	
 
 	/* Default bootfs - but ignore failure, in case emu0 doesn't exist */
 	vfs_setbootfs("emu0");
@@ -211,7 +213,10 @@ kmain(char *arguments)
 {
 	boot();
 
-	menu(arguments);
+	(void)arguments;
+	
+	
+	//menu(arguments);
 
 	/* Should not get here */
 }

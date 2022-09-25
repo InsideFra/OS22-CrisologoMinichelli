@@ -1,6 +1,7 @@
 #include <types.h>
 #include <vm.h>
 #include <spinlock.h>
+#include <kern/errno.h>
 #include <page.h>
 #include <machine/tlb.h>
 #include <spl.h>
@@ -15,6 +16,7 @@ static struct spinlock stealmem_lock = SPINLOCK_INITIALIZER;
 // Keep track of all free frames
 // SET UP A PAGE TABLE to translate logical to physical addresses
 struct RAM_PG_ (*main_PG) = NULL;
+uint32_t pt_counter = 0;
 
 struct frame_list_struct (*frame_list) = NULL;
 
@@ -199,6 +201,34 @@ pageSearch(vaddr_t addr) {
     }
     //DEBUG(DB_VM, "(pageSearc): No Entry Found - 0x%x\n", addr);
     return noEntryFound;
+}
+
+/**
+* This function allow to find the victim page inside RAM page table
+* @author @Marco_Embed
+* @param 
+* @date 20/09/2022
+* @return page number of victim page;
+*/
+int victim_pageSearch(void){
+    uint32_t min_value;
+    uint32_t victim_page = 0;
+    bool first_page;
+    for(unsigned int i = 0; i < PAGETABLE_ENTRY; i++) {
+       if(i == first_page){
+            min_value = main_PG[i].victim_counter;
+            victim_page = main_PG[i].page_number;
+            first_page = 0;
+       } else if(min_value > main_PG[i].victim_counter){
+            min_value = main_PG[i].victim_counter;
+            victim_page = main_PG[i].page_number;
+       }
+    }
+
+    if(!victim_page){
+        //error
+    }
+    return victim_page;
 }
 
 /**
@@ -437,3 +467,15 @@ free_pages(vaddr_t addr)
 //     return 1;
 // }
 
+/* LRU algorithm */
+int page_replacement(int page_num){
+	if(free_kpages((vaddr_t)(main_PG[page_num].page_number)*PAGE_SIZE)) {
+		return EINVAL;
+	}
+    return 0;
+}
+
+/* swap in func*/
+
+
+/* swap out func*/

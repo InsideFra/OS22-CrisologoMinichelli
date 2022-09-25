@@ -146,6 +146,8 @@ int load_elf(struct vnode *v, vaddr_t *entrypoint, vaddr_t start, uint32_t npage
 
 int is_codeSegment(vaddr_t vaddr, struct addrspace *as);
 int is_dataSegment(vaddr_t vaddr, struct addrspace* as); 
+int victim_pageSearch(void);
+int page_replacement(int page_num);
 
 
 #endif /* _ADDRSPACE_H_ */
