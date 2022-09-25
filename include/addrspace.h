@@ -66,6 +66,7 @@ struct addrspace {
         vaddr_t as_vbase_data;
         uint16_t as_npages_data;
         uint16_t as_npages_data_loaded;
+        vaddr_t as_vbase_bss;
 
         vaddr_t as_vbase_stack;
         uint16_t as_npages_stack;
@@ -140,6 +141,7 @@ int load_elf(struct vnode *v, vaddr_t *entrypoint, vaddr_t start, uint32_t npage
 
 int is_dataSegment(vaddr_t vaddr, struct addrspace* as);
 int is_codeSegment(vaddr_t vaddr, struct addrspace* as);
+int is_bssSegment(vaddr_t vaddr, struct addrspace* as);
 
 
 #endif /* _ADDRSPACE_H_ */

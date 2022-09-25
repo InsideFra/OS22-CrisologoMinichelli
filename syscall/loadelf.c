@@ -92,6 +92,14 @@ load_segment(struct addrspace *as, struct vnode *v,
 
 	DEBUG(DB_EXEC, "ELF: Loading %lu bytes to 0x%lx\n",
 	      (unsigned long) filesize, (unsigned long) vaddr);
+	
+	if (is_dataSegment(vaddr, as)) {
+		// Check when the BSS segment starts, by looking when data segment starts to be filled with zeroes
+		// Called only the first time
+		// Improvement with huge program: ~122 to ..
+		if (!as->as_vbase_bss)
+			as->as_vbase_bss = as->as_vbase_data + (filesize/PAGE_SIZE) + 1;
+	}
 
 	iov.iov_ubase = (userptr_t)vaddr;
 	iov.iov_len = memsize;		 // length of the memory space
@@ -322,22 +330,18 @@ load_elf(struct vnode *v, vaddr_t *entrypoint, vaddr_t start, uint32_t npages)
 				}
 			} else if(is_dataSegment(start, as)){
 				if(is_dataSegment(ph.p_vaddr, as)){
-					result = load_segment(as, v, ph.p_offset+(start-ph.p_vaddr), start,
-						npages*PAGE_SIZE, npages*PAGE_SIZE,
-						ph.p_flags & PF_X);
+					if (!is_bssSegment(start, as)) {
+						result = load_segment(as, v, ph.p_offset+(start-ph.p_vaddr), start,
+							npages*PAGE_SIZE, npages*PAGE_SIZE,
+							ph.p_flags & PF_X);
+					}
 				}
-			}
-			
-			if (result) {
+			}	
+			if (result)
 				return result;
-			}
-
-			return 0;
 		}
-		
-		if (result) {
+		if (result)
 			return result;
-		}
 	}
 
 	if (start == 0) {

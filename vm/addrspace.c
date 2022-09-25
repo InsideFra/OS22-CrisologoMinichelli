@@ -67,6 +67,7 @@ as_create(void)
 
 	as->as_vbase_data = 0;
 	as->as_npages_data = 0;
+	as->as_vbase_bss = 0;
 
 	as->as_vbase_stack = 0;
 
@@ -102,7 +103,7 @@ as_destroy(struct addrspace *as)
 
 	kfree(as);
 	for (unsigned int i = 0; i < PAGETABLE_ENTRY; i++) {
-		if (main_PG[i].pid == 1 && main_PG[i].Valid == 1) {
+		if (main_PG[i].pid == curproc->pid && main_PG[i].Valid == 1) {
 			free_kpages(i*4096 + MIPS_KSEG0);
 		}
 	}
@@ -180,9 +181,9 @@ as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize,
 			}
 			
 			// Update TLB??
-			// DEBUG(DB_VM, "CODE SEGMENT: ");
-			// if (freeTLBEntries)
-			// 	addTLB(as->as_vbase_code+i*PAGE_SIZE, curproc->pid, 0); // Dirty bit set to 0 as this is a read only segment
+			DEBUG(DB_VM, "CODE SEGMENT: ");
+			if (freeTLBEntries)
+				addTLB(as->as_vbase_code+i*PAGE_SIZE, curproc->pid, 0); // Dirty bit set to 0 as this is a read only segment
 		}
 		return 0;
 	} else {
@@ -224,9 +225,9 @@ as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize,
 				}
 
 				// // Update TLB??
-				// DEBUG(DB_VM, "DATA SEGMENT: ");
-				// if (freeTLBEntries)
-				// 	addTLB(as->as_vbase_data+i*PAGE_SIZE, curproc->pid, 1); // Dirty bit set to 1 as this is a writable segment
+				DEBUG(DB_VM, "DATA SEGMENT: ");
+				if (freeTLBEntries)
+					addTLB(as->as_vbase_data+i*PAGE_SIZE, curproc->pid, 1); // Dirty bit set to 1 as this is a writable segment
 			}
 			return 0;
 		}
@@ -320,6 +321,26 @@ is_dataSegment(vaddr_t vaddr, struct addrspace* as) {
     vaddr_t offset = (vaddr_t)(as->as_npages_data << 12);
     if (vaddr <= as->as_vbase_data + offset) {
         if (vaddr >= as->as_vbase_data) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/**
+* This method checks if the virtual address passed belong to a bss segment.
+* This methos uses the address space to achieve this.
+* @author @InsideFra
+* @param vaddr The virtual address (0x00..)
+* @param as the address space
+* @date 25/08/2022
+* @return 1 if everything is okay else ..
+*/
+int
+is_bssSegment(vaddr_t vaddr, struct addrspace* as) {
+    vaddr_t offset = (vaddr_t)(as->as_npages_data << 12);
+    if (vaddr <= as->as_vbase_bss + offset) {
+        if (vaddr >= as->as_vbase_bss) {
             return 1;
         }
     }

@@ -9,7 +9,7 @@
 
 extern unsigned int PAGETABLE_ENTRY;
 extern struct invertedPT (*main_PG);
-uint32_t freeTLBEntries = 0;
+uint32_t freeTLBEntries = NUM_TLB - 1;
 /**
 * This method is used to add an entry to the hardware TLB.
 *
@@ -75,7 +75,7 @@ addTLB(vaddr_t vaddr, pid_t pid, _Bool Dirty) {
 
             DEBUG(DB_TLB, "(TLBwrite ): [%3d] PN: %x\tpAddr: 0x%x\n", tlb_index_probe, ehi >> 12, paddr);
 
-            freeTLBEntries--;;
+            freeTLBEntries--;
 
             splx(spl);
             return 0;
@@ -93,8 +93,6 @@ addTLB(vaddr_t vaddr, pid_t pid, _Bool Dirty) {
     }
 
     DEBUG(DB_TLB, "(TLBreplac): [%3d] PN: %x\tpAddr: 0x%x\n", tlb_index_probe, ehi >> 12, paddr);
-
-    freeTLBEntries--;;
 
     splx(spl);
     return 0;
