@@ -10,10 +10,6 @@
 extern unsigned int PAGETABLE_ENTRY;
 extern struct invertedPT (*main_PG);
 uint32_t freeTLBEntries = 0;
-
-
-uint32_t freeTLBEntries = 0;
-
 /**
 * This method is used to add an entry to the hardware TLB.
 *

@@ -72,8 +72,8 @@ void vm_bootstrap(void) {
 		}
 	}
 
-	kprintf("VM: Memory available starts from frame: %d until frame %d\n", RAM_FirstFree/PAGE_SIZE, PAGETABLE_ENTRY - (RAM_Size-location)/PAGE_SIZE - 1);
-	kprintf("VM: sizeof(invertedPT): %d bytes, entries: %d, total = %d bytes\n", sizeof(struct invertedPT), PAGETABLE_ENTRY, sizeof(struct invertedPT)*PAGETABLE_ENTRY);
+	DEBUG(DB_VM, "VM: Memory available starts from frame: %d until frame %d\n", RAM_FirstFree/PAGE_SIZE, PAGETABLE_ENTRY - (RAM_Size-location)/PAGE_SIZE - 1);
+	DEBUG(DB_VM, "VM: sizeof(invertedPT): %d bytes, entries: %d, total = %d bytes\n", sizeof(struct invertedPT), PAGETABLE_ENTRY, sizeof(struct invertedPT)*PAGETABLE_ENTRY);
 	//print_frame_list();
 	//print_page_table();
 
@@ -97,13 +97,13 @@ void vm_bootstrap(void) {
 	DEBUG(DB_VM, "VM: PG vLocation: 0x%x\tVM: PG pLocation: 0x%x\tVM: Entries: %u\tVM: Sizeof(Entry): %u\n", 
 			location, PADDR_TO_KVADDR(location), PAGETABLE_ENTRY, sizeof(struct invertedPT));
 	
-	kprintf("VM: %3uk physical memory available\n",
+	DEBUG(DB_VM, "VM: %3uk physical memory available\n",
 		(RAM_Size)/1024);
 
-	kprintf("VM: %3uk physical memory used \tVM: %u used pages\n",
+	DEBUG(DB_VM, "VM: %3uk physical memory used \tVM: %u used pages\n",
 		(RAM_FirstFree)/1024, (RAM_FirstFree)/PAGE_SIZE);
 
-	kprintf("VM: %3uk physical memory free\tVM: %u free pages\n", 
+	DEBUG(DB_VM, "VM: %3uk physical memory free\tVM: %u free pages\n", 
 			(location - RAM_FirstFree)/1024, (location - RAM_FirstFree)/PAGE_SIZE);
 
 	DEBUG(DB_VM, "VM: %3u pages used by the VM\n", 
@@ -199,10 +199,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 						/*allocate page in PT*/
 						if(!(result = alloc_kpages(1))){
 						  //page table full, we have to free a page
-              victim_page = victim_pageSearch(data_seg);
-              paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;	
+							victim_page = victim_pageSearch(data_seg);
+							paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;	
 							swapOut((uint32_t*)paddress);
-              SF_Writes++;
+              				SF_Writes++;
 							result = alloc_kpages(1);
 						}
 
@@ -221,21 +221,21 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 							return result;
 						}
 						vfs_close(v);
-            PF_Disk++;
-					  PF_ELF++;
+            			PF_Disk++;
+					  	PF_ELF++;
 					} else {
 						/*---------------------------- SWAP IN NEEDED ---------------------------*/
-              victim_page = victim_pageSearch(code_seg);
-              paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;
-              if(swapOut((uint32_t*)paddress) == 0){
-                SF_Writes++;
-                swapIn(index);
-						    PF_Swapfile++;
-              }
+						victim_page = victim_pageSearch(code_seg);
+						paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;
+						if(swapOut((uint32_t*)paddress) == 0){
+							SF_Writes++;
+							swapIn(index);
+							PF_Swapfile++;
+						}
 					}
 
 					vfs_close(v);
-          PF_Disk++;
+          			PF_Disk++;
 					PF_ELF++;
 					return 0;
 				} else if (is_dataSegment(faultaddress, as)) {
@@ -247,10 +247,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 						/*allocate page in PT*/
 						if(!(result = alloc_kpages(1))){
 							//page table full, we have to free a page
-              victim_page = victim_pageSearch(data_seg);
-              paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;	
+							victim_page = victim_pageSearch(data_seg);
+							paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;	
 							swapOut((uint32_t*)paddress);
-              SF_Writes++;
+              				SF_Writes++;
 							result = alloc_kpages(1);
 						}
             
@@ -269,20 +269,20 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 							return result;
 						}
 						vfs_close(v);
-            PF_ELF++;
+            			PF_ELF++;
 						PF_Disk++;
 					} else {
 						/*---------------------------- SWAP IN NEEDED ---------------------------*/
-              victim_page = victim_pageSearch(data_seg);
-              paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;
-              if(swapOut((uint32_t*)paddress) == 0){
-                PF_Writes++;
-							  swapIn(index);
-                PF_Swapfile++;
-                return 0;
+						victim_page = victim_pageSearch(data_seg);
+						paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;
+						if(swapOut((uint32_t*)paddress) == 0){
+							SF_Writes++;
+							swapIn(index);
+                			PF_Swapfile++;
+                			return 0;
 					    }
-              return 1;
-          }
+              			return 1;
+          			}
 					return 0;
 				}
 				return EINVAL;
@@ -314,10 +314,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 						/*allocate page in PT*/
 						if(!(result = alloc_kpages(1))){
 							//page table full, we have to free a page
-              victim_page = victim_pageSearch(data_seg);
-              paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;	
+							victim_page = victim_pageSearch(data_seg);
+							paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;	
 							swapOut((uint32_t*)paddress);
-              PF_Writes++;
+              				SF_Writes++;
 							result = alloc_kpages(1);
 						}
 
@@ -338,14 +338,14 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 						}
 						vfs_close(v);
 						PF_ELF++;
-            PF_Disk++;
+            			PF_Disk++;
 					} else {
 						/*---------------------------- SWAP IN NEEDED ---------------------------*/
-              victim_page = victim_pageSearch(data_seg);
-              paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;
-              if(swapOut((uint32_t*)paddress) == 0){
+						victim_page = victim_pageSearch(data_seg);
+						paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;
+						if(swapOut((uint32_t*)paddress) == 0){
 							  swapIn(index);
-						  }
+						}
 					}
 
 					gettime(&after);
@@ -360,6 +360,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 			
 			if(addTLB(faultaddress, curproc->pid, 1))
 				return 1;
+			
 			TLB_Reloads++;
 			gettime(&after);
 			timespec_sub(&after, &before, &duration);
