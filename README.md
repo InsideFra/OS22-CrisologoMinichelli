@@ -120,8 +120,9 @@
  F1a -- "as_npages_data_loaded \n= 64 - as_npages_code_loaded - 16" --> F3
  F2a -- "as_npages_data_loaded \n= segment_size" --> F3
  F3 -- "as_prepare_load()" --> F4["Alloc 1 page for stack"]
- ### Round Robin Scheduling
  ```
+ 
+ ### Round Robin Scheduling
  
  For this project, a Round-Robin (RR) like algorith is used to schedule the upcoming processes.
 
