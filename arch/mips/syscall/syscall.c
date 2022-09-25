@@ -123,18 +123,16 @@ syscall(struct trapframe *tf)
 		break;
 
 		case SYS_read:
-			DEBUG(DB_VM,"Syscall: read(%d,%x,%d)\n",
+			kprintf("Syscall: read(%d,%x,%d)\n",
 				(unsigned int) tf->tf_a0,(int) tf->tf_a1,(unsigned int) tf->tf_a2);
 			
-			while(1) {
-				//kgets(buf, sizeof(buf));
-			}
 			err = 0;
 		break;
 	    /* Add stuff here */
 
 	    default:
-			err = sys__exit(1);
+			kprintf("Unknown syscall\n");
+			err = 0;
 		break;
 	}
 
