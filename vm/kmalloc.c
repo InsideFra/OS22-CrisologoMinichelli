@@ -1300,6 +1300,7 @@ paddr_t alloc_kpages(unsigned npages) {
 		return 0;
 	}
 	spinlock_release(&kmalloc_spinlock);
+	memset((void*)PADDR_TO_KVADDR(addr), 0, PAGE_SIZE);
 	return PADDR_TO_KVADDR(addr);
 }
 
@@ -1325,7 +1326,7 @@ void free_kpages(paddr_t paddr) {
 	}
 
 	if (main_PG[frame_index].pid != 0) { // Remove from the TLB only if is an user pages
-		if (removeTLB(main_PG[frame_index].page_number * 4096))
+		if (removeTLBv1(main_PG[frame_index].page_number * 4096))
 			panic("Error in free_kpages during removeTLB()");
 	}
 
