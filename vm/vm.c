@@ -16,6 +16,7 @@
 #include <swapfile.h>
 #include <kern/time.h>
 #include <clock.h>
+#include <syscall.h>
 
 // This variables indicates if the vm has been initialized
 _Bool VM_Started = false;
@@ -66,12 +67,6 @@ void vm_bootstrap(void) {
 		main_PG[PAGETABLE_ENTRY-1-i].Valid = 1;
 	}
 
-    for (uint32_t i = (unsigned int)RAM_FirstFree/PAGE_SIZE; i < PAGETABLE_ENTRY - (RAM_Size-location)/PAGE_SIZE; i++) {
-		if(addToFrameList(i, addBOTTOM)) {
-			panic("Error in addToList()");
-		}
-	}
-
 	DEBUG(DB_VMINIT, "VM: Memory available starts from frame: %d until frame %d\n", RAM_FirstFree/PAGE_SIZE, PAGETABLE_ENTRY - (RAM_Size-location)/PAGE_SIZE - 1);
 	DEBUG(DB_VMINIT, "VM: sizeof(invertedPT): %d bytes, entries: %d, total = %d bytes\n", sizeof(struct invertedPT), PAGETABLE_ENTRY, sizeof(struct invertedPT)*PAGETABLE_ENTRY);
 	//print_frame_list();
@@ -92,6 +87,12 @@ void vm_bootstrap(void) {
 	swapfile_init();
 
 	VM_Started = true;
+
+	for (uint32_t i = (unsigned int)RAM_FirstFree/PAGE_SIZE; i < PAGETABLE_ENTRY - (RAM_Size-location)/PAGE_SIZE; i++) {
+		if(addToFrameList(i, addBOTTOM)) {
+			panic("Error in addToList()");
+		}
+	}
 
 	// DEBUG SECTION
 	DEBUG(DB_VMINIT, "VM: PG vLocation: 0x%x\tVM: PG pLocation: 0x%x\tVM: Entries: %u\tVM: Sizeof(Entry): %u\n", 
@@ -174,8 +175,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 			// This fault happen when a program tries to write to a only-read segment.
 			// If such exception occurs, the kernel must terminate the process.
 			// The kernel should not crash!
-			// TODO #14:
-			panic("dumbvm: got VM_FAULT_READONLY\n");
+			sys__exit(0);
 			break;
 	    case VM_FAULT_READ:
 			ret = pageSearch(faultaddress);
@@ -193,7 +193,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 					(unsigned long long) duration.tv_sec,
 					(unsigned long) duration.tv_nsec);
 				return 0;
-			} else {
+			} else { 
 				if (is_codeSegment(faultaddress, as)) {
 					faultaddress &= PAGE_FRAME;
 
