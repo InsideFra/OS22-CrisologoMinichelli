@@ -61,10 +61,10 @@ static const size_t sizes[NSIZES] = { 16, 32, 64, 128, 256, 512, 1024, 2048 };
 #error "Odd page size"
 #endif
 
- #define MAX_PAGES_PER_PROCESS 80
- #define MAX_CODE_SEGMENT_PAGES 4
- #define MAX_DATA_SEGMENT_PAGES 4
- #define MAX_STACK_SEGMENT_PAGES 4
+#define MAX_PAGES_PER_PROCESS 80
+#define MAX_CODE_SEGMENT_PAGES 4
+#define MAX_DATA_SEGMENT_PAGES 4
+#define MAX_STACK_SEGMENT_PAGES 4
 
 #define MAX_PAGES_ALLOC 10
 
