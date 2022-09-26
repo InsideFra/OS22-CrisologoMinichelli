@@ -72,8 +72,8 @@ void vm_bootstrap(void) {
 		}
 	}
 
-	DEBUG(DB_VM, "VM: Memory available starts from frame: %d until frame %d\n", RAM_FirstFree/PAGE_SIZE, PAGETABLE_ENTRY - (RAM_Size-location)/PAGE_SIZE - 1);
-	DEBUG(DB_VM, "VM: sizeof(invertedPT): %d bytes, entries: %d, total = %d bytes\n", sizeof(struct invertedPT), PAGETABLE_ENTRY, sizeof(struct invertedPT)*PAGETABLE_ENTRY);
+	DEBUG(DB_VMINIT, "VM: Memory available starts from frame: %d until frame %d\n", RAM_FirstFree/PAGE_SIZE, PAGETABLE_ENTRY - (RAM_Size-location)/PAGE_SIZE - 1);
+	DEBUG(DB_VMINIT, "VM: sizeof(invertedPT): %d bytes, entries: %d, total = %d bytes\n", sizeof(struct invertedPT), PAGETABLE_ENTRY, sizeof(struct invertedPT)*PAGETABLE_ENTRY);
 	//print_frame_list();
 	//print_page_table();
 
@@ -94,7 +94,7 @@ void vm_bootstrap(void) {
 	VM_Started = true;
 
 	// DEBUG SECTION
-	DEBUG(DB_VM, "VM: PG vLocation: 0x%x\tVM: PG pLocation: 0x%x\tVM: Entries: %u\tVM: Sizeof(Entry): %u\n", 
+	DEBUG(DB_VMINIT, "VM: PG vLocation: 0x%x\tVM: PG pLocation: 0x%x\tVM: Entries: %u\tVM: Sizeof(Entry): %u\n", 
 			location, PADDR_TO_KVADDR(location), PAGETABLE_ENTRY, sizeof(struct invertedPT));
 	
 	DEBUG(DB_VM, "VM: %3uk physical memory available\n",
@@ -123,6 +123,8 @@ extern unsigned int PF_Disk;
 extern unsigned int PF_Swapfile;
 extern unsigned int TLB_Faults_wFree;
 extern unsigned int TLB_Faults_wReplace;
+
+struct timespec duration_VMFAULTREAD1, duration_VMFAULTREAD2;
 
 /**
  * Usually called by mips_trap().
@@ -183,8 +185,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 					return EINVAL;
 				}
 				TLB_Reloads++;
-				gettime(&after);
-				timespec_sub(&after, &before, &duration);
+				// gettime(&after);
+				// timespec_sub(&after, &before, &duration);
+				// timespec_add(&duration, &duration_VMFAULTREAD, &duration_VMFAULTREAD);
+				
 				DEBUG(DB_TIME, "VM_FAULT_READ with Page present took %llu.%09lu seconds\n", 
 					(unsigned long long) duration.tv_sec,
 					(unsigned long) duration.tv_nsec);
@@ -201,12 +205,13 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 						  //page table full, we have to free a page
 							victim_page = victim_pageSearch(data_seg);
 							paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;	
-							swapOut((uint32_t*)paddress);
-              				SF_Writes++;
+							//swapOut((uint32_t*)paddress);
+              				free_kpages(paddress);
 							result = alloc_kpages(1);
 						}
 
 						addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid );
+						
 						/* Open the file. */
 						result = vfs_open(curproc->p_name, O_RDONLY, 0, &v);
 						if (result) {
@@ -229,14 +234,17 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 						paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;
 						if(swapOut((uint32_t*)paddress) == 0){
 							SF_Writes++;
+							
 							swapIn(index);
 							PF_Swapfile++;
+							PF_Disk++;
 						}
 					}
 
-					vfs_close(v);
-          			PF_Disk++;
-					PF_ELF++;
+					// gettime(&after);
+					// timespec_sub(&after, &before, &duration);
+					// timespec_add(&duration, &duration_VMFAULTREAD, &duration_VMFAULTREAD);
+
 					return 0;
 				} else if (is_dataSegment(faultaddress, as)) {
 					faultaddress &= PAGE_FRAME;
@@ -249,8 +257,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 							//page table full, we have to free a page
 							victim_page = victim_pageSearch(data_seg);
 							paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;	
+							
 							swapOut((uint32_t*)paddress);
               				SF_Writes++;
+							
 							result = alloc_kpages(1);
 						}
             
@@ -271,25 +281,37 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 						vfs_close(v);
             			PF_ELF++;
 						PF_Disk++;
+
+						// gettime(&after);
+						// timespec_sub(&after, &before, &duration);
+						// timespec_add(&duration, &duration_VMFAULTREAD1, &duration_VMFAULTREAD1);
+
+						return 0;
 					} else {
 						/*---------------------------- SWAP IN NEEDED ---------------------------*/
 						victim_page = victim_pageSearch(data_seg);
 						paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;
-						if(swapOut((uint32_t*)paddress) == 0){
-							SF_Writes++;
-							swapIn(index);
-                			PF_Swapfile++;
-                			return 0;
-					    }
-              			return 1;
+						gettime(&before);
+						if(swapOut((uint32_t*)paddress)){
+							return 1;
+						}
+						SF_Writes++;
+						gettime(&after);
+						
+						swapIn(index);
+						PF_Swapfile++;
+						PF_Disk++;
+
+						
+						timespec_sub(&after, &before, &duration);
+						timespec_add(&duration, &duration_VMFAULTREAD2, &duration_VMFAULTREAD2);
+						
+						return 0;
           			}
-					return 0;
 				}
 				return EINVAL;
 			}
-			
-			panic("You should not get here");
-			return 1;
+			return EINVAL;
 			break;
 	    case VM_FAULT_WRITE:
 			// search TLB missing page in Page Table
@@ -316,8 +338,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 							//page table full, we have to free a page
 							victim_page = victim_pageSearch(data_seg);
 							paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;	
+							
 							swapOut((uint32_t*)paddress);
               				SF_Writes++;
+							
 							result = alloc_kpages(1);
 						}
 
@@ -344,15 +368,19 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 						victim_page = victim_pageSearch(data_seg);
 						paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;
 						if(swapOut((uint32_t*)paddress) == 0){
-							  swapIn(index);
+							SF_Writes++;
+							
+							swapIn(index);
+							PF_Disk++;
+							PF_Swapfile++;
 						}
 					}
 
 					gettime(&after);
 					timespec_sub(&after, &before, &duration);
 					DEBUG(DB_TIME, "VM_FAULT_WRITE with Page not present took %llu.%09lu seconds\n", 
-					(unsigned long long) duration.tv_sec,
-					(unsigned long) duration.tv_nsec);
+						(unsigned long long) duration.tv_sec,
+						(unsigned long) duration.tv_nsec);
 					return 0;
 				}
 				return 1;
@@ -362,6 +390,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 				return 1;
 			
 			TLB_Reloads++;
+			
 			gettime(&after);
 			timespec_sub(&after, &before, &duration);
 			DEBUG(DB_TIME, "VM_FAULT_WRITE with Page present took %llu.%09lu seconds\n", 
