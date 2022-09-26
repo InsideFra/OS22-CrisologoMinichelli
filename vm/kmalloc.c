@@ -1300,6 +1300,7 @@ paddr_t alloc_kpages(unsigned npages) {
 		return 0;
 	}
 	spinlock_release(&kmalloc_spinlock);
+	memset((void*)PADDR_TO_KVADDR(addr), 0, PAGE_SIZE);
 	return PADDR_TO_KVADDR(addr);
 }
 

@@ -52,10 +52,10 @@
  The maximum number of page for each SEGMENT is determined by (in the include file [page.h](/arch/mips/include/vm.h)):
 
  ```c
- #define MAX_PAGES_PER_PROCESS 80
- #define MAX_CODE_SEGMENT_PAGES 32
- #define MAX_DATA_SEGMENT_PAGES 32
- #define MAX_STACK_SEGMENT_PAGES 16
+ #define MAX_PAGES_PER_PROCESS 78
+ #define MAX_CODE_SEGMENT_PAGES 4
+ #define MAX_DATA_SEGMENT_PAGES 70
+ #define MAX_STACK_SEGMENT_PAGES 4
 
  #define MAX_PAGES_ALLOC 10
  ```

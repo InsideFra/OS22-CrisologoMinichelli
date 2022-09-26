@@ -212,8 +212,16 @@ sys_reboot(int code)
 * @date 20/09/2022
 * @return 0 if the process has been killed;
 */
+extern struct timespec before_Program;
 int
 sys__exit(int status) {
+	struct timespec after, duration;
+	gettime(&after);
+	timespec_sub(&after, &before_Program, &duration);
+	DEBUG(DB_EXEC, "Program %s took %llu.%09lu seconds\n",
+	curproc->p_name, 
+	(unsigned long long) duration.tv_sec,
+	(unsigned long) duration.tv_nsec);
 	curproc->exit_status = status;
 	as_destroy(curproc->p_addrspace);
 	thread_exit();

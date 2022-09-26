@@ -69,6 +69,7 @@
  * It copies the program name because runprogram destroys the copy
  * it gets by passing it to vfs_open().
  */
+struct timespec before_Program;
 static
 void
 cmd_progthread(void *ptr, unsigned long nargs)
@@ -78,6 +79,7 @@ cmd_progthread(void *ptr, unsigned long nargs)
 	int result;
 
 	KASSERT(nargs >= 1);
+	gettime(&before_Program);
 
 	if (nargs > 2) {
 		kprintf("Warning: argument passing from menu not supported\n");

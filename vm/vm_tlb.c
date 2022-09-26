@@ -6,8 +6,11 @@
 #include <vm_tlb.h>
 #include <lib.h>
 #include <pt.h>
+#include <addrspace.h>
+#include <proc.h>
 
 extern unsigned int PAGETABLE_ENTRY;
+
 extern struct invertedPT(*main_PG);
 uint32_t freeTLBEntries = 0;
 uint32_t TLB_victim;
@@ -26,6 +29,7 @@ uint32_t TLB_victim;
  */
 int addTLB(vaddr_t vaddr, pid_t pid, _Bool Dirty)
 {
+    (void) Dirty; // not used by now
     uint32_t ehi, elo;
     paddr_t pa, paddr = 0;
     int32_t tlb_index_probe;
@@ -51,7 +55,8 @@ int addTLB(vaddr_t vaddr, pid_t pid, _Bool Dirty)
 
     ehi = vaddr & PAGE_FRAME; // PAGE ALIGN
     pa = paddr - MIPS_KSEG0;
-    if (Dirty)
+
+    if (is_codeSegment(ehi, proc_getas())) // Set the dirty bit only if is a code segment
         elo = pa | TLBLO_VALID | TLBLO_DIRTY;
     else
         elo = pa | TLBLO_VALID;
@@ -84,7 +89,6 @@ int addTLB(vaddr_t vaddr, pid_t pid, _Bool Dirty)
             DEBUG(DB_TLB, "(TLBwrite ): [%3d] PN: %x\tpAddr: 0x%x\n", tlb_index_probe, ehi >> 12, paddr);
 
             freeTLBEntries--;
-            ;
 
             splx(spl);
             return 0;
@@ -109,8 +113,6 @@ int addTLB(vaddr_t vaddr, pid_t pid, _Bool Dirty)
     DEBUG(DB_TLB, "(TLBreplac): [%3d] PN: %x\tpAddr: 0x%x\n", tlb_index_probe, ehi >> 12, paddr);
 
     freeTLBEntries--;
-    ;
-
     splx(spl);
     return 0;
 

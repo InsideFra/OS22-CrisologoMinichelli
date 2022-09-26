@@ -5,6 +5,8 @@
 
 extern struct frame_list_struct (*frame_list);
 
+extern unsigned int PAGETABLE_ENTRY;
+
 /**
 * This method adds a value in the user-frame list.
 * @author @InsideFra
@@ -21,7 +23,12 @@ int addToFrameList(uint32_t value, uint8_t position) {
             panic("Error kmalloc in addToList()\n");
     }
 
+    if (currentFrame == (void*)0xdeadeef) {
+        panic("1");
+    }
+
     currentFrame->frame_number = value;
+    KASSERT(value <= PAGETABLE_ENTRY);
 
     switch (position) {
         case addTOP:
@@ -36,10 +43,13 @@ int addToFrameList(uint32_t value, uint8_t position) {
             bufferFrame = frame_list;
             while(1) {
                 if (bufferFrame->next_frame != NULL) {
-                    bufferFrame = bufferFrame->next_frame;
-                    continue;
+                    if (bufferFrame->next_frame != (void*)0xdeadbeef) {
+                        bufferFrame = bufferFrame->next_frame;
+                        continue;
+                    }
                 }
                 bufferFrame->next_frame = currentFrame;
+                DEBUG(DB_VM, "Added frame %d to the frame list (addr: 0x%x) at 0x%x\n", bufferFrame->frame_number, (uint32_t)frame_list, (uint32_t)bufferFrame);
                 return 0;
                 break;
             } 

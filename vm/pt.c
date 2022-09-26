@@ -9,6 +9,8 @@
 #include <addrspace.h>
 #include <proc.h>
 #include <current.h>
+#include <kern/time.h>
+#include <clock.h>
 
 // We need to divide the physiical memory into fixed-sized blocks called FRAMES
 // Divide logical memory into blocks of same size called PAGES
@@ -38,6 +40,8 @@ struct frame_list_struct (*frame_list) = NULL;
 
 uint32_t pt_counter = 0;
 
+struct timespec duration_pageSearch;
+
 /**
 * This method checks if the virtual address is present and valid inside the inverted PageTable.
 * @author @InsideFra
@@ -47,6 +51,8 @@ uint32_t pt_counter = 0;
 */
 int
 pageSearch(vaddr_t addr) {
+    struct timespec before, after, duration;
+    gettime(&before);
     unsigned int    index = 0;
     _Bool           found = 0;
     for(unsigned int i = 0; i < PAGETABLE_ENTRY; i++) {
@@ -58,6 +64,9 @@ pageSearch(vaddr_t addr) {
             }
         }
     }
+    gettime(&after);
+    timespec_sub(&after, &before, &duration);
+    timespec_add(&duration_pageSearch, &duration, &duration_pageSearch);
 
     if (found == 0) {
         return noEntryFound;

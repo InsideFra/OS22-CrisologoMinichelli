@@ -91,6 +91,7 @@
 #define DB_KMALLOC     0x1000
 #define DB_TLB     	   0x2000
 #define DB_TIME    	   0x4000
+#define DB_VMINIT	   0x8000
 
 extern uint32_t dbflags;
 
