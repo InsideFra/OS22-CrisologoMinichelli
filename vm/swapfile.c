@@ -150,10 +150,13 @@ int swapIn(int index){
     unsigned int pt_index = ((uint32_t)RAM_address - MIPS_KSEG0)/PAGE_SIZE; 
     unsigned int vaddress = sf_list[index].p_number * PAGE_SIZE;
     pid_t pid = sf_list[index].p_pid;
-    if(addPT(pt_index, vaddress, pid)){
+    bool Dirty = sf_list[index].Dirty;
+    
+    if(addPT(pt_index, vaddress, pid, Dirty)){
     	return EINVAL;
     }
-    if(addTLB(vaddress, pid, 0)){
+
+    if(addTLB(vaddress, pid)){
     	return EINVAL;
     }
 

@@ -12,8 +12,10 @@
 
 struct list_param{
     uint32_t p_number;
-    uint16_t p_pid;
-    uint16_t p_offset;
+    pid_t p_pid;
+    uint32_t p_offset;
+    bool Dirty;
+
 };
 
 int swapfile_init(void);

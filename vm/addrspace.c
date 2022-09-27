@@ -176,14 +176,16 @@ as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize,
 			// For each code page, allocate a physical frame and associate it to a page.
 			DEBUG(DB_VM, "CODE SEGMENT: ");
 
-			if (alloc_pages(1, as->as_vbase_code+i*PAGE_SIZE)) {
+			// We are defining a region for the code segment, which will be uploaded for the first time
+			// We set the dirty bit to 1
+			if (alloc_pages(1, as->as_vbase_code+i*PAGE_SIZE, 1)) {
 				panic("Error during memory allocation. See alloc_kpages called by as_define_region.\n");
 			}
 			
 			// Update TLB??
 			DEBUG(DB_VM, "CODE SEGMENT: ");
-			if (freeTLBEntries)
-				addTLB(as->as_vbase_code+i*PAGE_SIZE, curproc->pid, 0); // Dirty bit set to 0 as this is a read only segment
+			// if (freeTLBEntries)
+			// 	addTLB(as->as_vbase_code+i*PAGE_SIZE, curproc->pid);
 		}
 		return 0;
 	} else {
@@ -220,14 +222,16 @@ as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize,
 				// Virtualizzation
 				DEBUG(DB_VM, "DATA SEGMENT: ");
 				
-				if (alloc_pages(1, as->as_vbase_data+i*PAGE_SIZE)) {
+				// We are defining a region for the data segment
+				// We set the dirty bit to 1
+				if (alloc_pages(1, as->as_vbase_data+i*PAGE_SIZE, 1)) {
 					panic("Error during memory allocation. See alloc_kpages called by as_define_region.\n");
 				}
 
 				// // Update TLB??
 				DEBUG(DB_VM, "DATA SEGMENT: ");
 				if (freeTLBEntries)
-					addTLB(as->as_vbase_data+i*PAGE_SIZE, curproc->pid, 1); // Dirty bit set to 1 as this is a writable segment
+					addTLB(as->as_vbase_data+i*PAGE_SIZE, curproc->pid);
 			}
 			return 0;
 		}
@@ -256,7 +260,12 @@ as_prepare_load(struct addrspace *as)
 		as->as_vbase_data);
 
 	as->as_vbase_stack = as->as_vbase_data + PAGE_SIZE*as->as_npages_data;
-	addr = alloc_pages(1, as->as_vbase_stack); // By now we just allocate one page for the stack. Later if needed, the kernel will use more pages
+	
+	// We are defining a region for the stack segment
+	// We set the dirty bit to 1
+	// By now we just allocate one page for the stack. Later if needed, the kernel will use more pages
+	addr = alloc_pages(1, as->as_vbase_stack, 1); 
+	
 	if (addr) {
 		panic ("Error while as_prepare_load()");
 		return ENOMEM;
