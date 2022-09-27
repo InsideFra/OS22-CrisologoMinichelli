@@ -27,9 +27,8 @@ uint32_t TLB_victim;
  * @date 02/08/2022
  * @return 0 if everything is okay else panic
  */
-int addTLB(vaddr_t vaddr, pid_t pid, _Bool Dirty)
+int addTLB(vaddr_t vaddr, pid_t pid)
 {
-    (void) Dirty; // not used by now
     uint32_t ehi, elo;
     paddr_t pa, paddr = 0;
     int32_t tlb_index_probe;
@@ -44,6 +43,11 @@ int addTLB(vaddr_t vaddr, pid_t pid, _Bool Dirty)
             if (main_PG[i].pid == pid)
             {
                 paddr = i * PAGE_SIZE + MIPS_KSEG0;
+                pa = paddr - MIPS_KSEG0;
+                if (main_PG[i].Dirty) // Set the dirty bit only if is a code segment
+                    elo = pa | TLBLO_VALID | TLBLO_DIRTY;
+                else
+                    elo = pa | TLBLO_VALID;
             }
     }
 
@@ -54,12 +58,6 @@ int addTLB(vaddr_t vaddr, pid_t pid, _Bool Dirty)
     }
 
     ehi = vaddr & PAGE_FRAME; // PAGE ALIGN
-    pa = paddr - MIPS_KSEG0;
-
-    if (is_codeSegment(ehi, proc_getas())) // Set the dirty bit only if is a code segment
-        elo = pa | TLBLO_VALID | TLBLO_DIRTY;
-    else
-        elo = pa | TLBLO_VALID;
 
     int32_t spl = splhigh();
     tlb_index_probe = tlb_probe(ehi, elo);
