@@ -44,6 +44,9 @@
 #include <vfs.h>
 #include <syscall.h>
 #include <test.h>
+#include <synch.h>
+
+extern struct semaphore *vfs_S;
 
 /*
  * Load program "progname" and start running it in usermode.
@@ -54,25 +57,26 @@
 int
 runprogram(char *progname)
 {
+	
 	struct addrspace *as;
 	struct vnode *v;
 	vaddr_t entrypoint, stackptr;
 	int result;
 
+	// Semaphore during runprogram() to allow multi process
+	P(vfs_S);
+
 	/* Open the file. */
 	result = vfs_open(progname, O_RDONLY, 0, &v);
 	if (result) {
+		V(vfs_S);
 		return result;
 	}
 
-	/* We should be a new process. */
-	KASSERT(proc_getas() == NULL);
-
-	/* Create a new address space. */
-	as = as_create();
+	as = proc_getas();
 	if (as == NULL) {
-		vfs_close(v);
-		return ENOMEM;
+		/* Create a new address space. */
+		panic("This should not happen!");
 	}
 
 	/* Switch to it and activate it. */
@@ -84,16 +88,19 @@ runprogram(char *progname)
 	if (result) {
 		/* p_addrspace will go away when curproc is destroyed */
 		vfs_close(v);
+		V(vfs_S);
 		return result;
 	}
 
 	/* Done with the file now. */
 	vfs_close(v);
+	V(vfs_S);
 
 	/* Define the user stack in the address space */
 	result = as_define_stack(as, &stackptr);
 	if (result) {
 		/* p_addrspace will go away when curproc is destroyed */
+		V(vfs_S);
 		return result;
 	}
 

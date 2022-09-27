@@ -17,13 +17,20 @@ for managing and manipulating the swapfile */
 #include <uio.h>
 #include <vm_tlb.h>
 #include <current.h>
+#include <synch.h>
+#include <thread.h>
+#include <proc.h>
 
 struct list_param sf_list[SWAPFILE_SIZE];   
 struct lock *sf_lock;
 
+extern struct semaphore *runprogram_S;
+
 extern struct invertedPT *main_PG;
 
 char filename[] = "swapfile";
+
+extern struct semaphore *vfs_S;
 
 int swapfile_init(void){
 	struct vnode *swapfile;
@@ -45,9 +52,7 @@ int swapfile_init(void){
        sf_list[i].p_offset = i;
     }
 
-    //swapfile_lock creation to protect swapfile_list
-
-    //sf_lock = lock_create("swap");
+    vfs_close(swapfile);
 
     return 0;
 }
@@ -69,42 +74,6 @@ int swapfile_checkv1(uint32_t page_num, pid_t pid){
 	}
     return noEntryFound;
 }
-
-//int swapfile_check(uint32_t page_num, pid_t pid){
-//    //we have to check if the requested page is saved into swapfile
-//    //off_t page_offset;
-//    int index;
-//    uint32_t address;
-//    uint32_t victim_page;
-//    if((index = sf_pageSearch(page_num, pid)) < 0){
-//
-//        /*--------------------PAGE NOT FOUND--------------------*/
-//
-//        return noEntryFound;
-//    } else if(index >= 0){
-//
-//        /*--------------------PAGE FOUND------------------------*/
-//
-//        //before swap-in operation, we need to check if there is space in RAM
-//            //address can be:
-//            // 0 => no space in RAM, swapOut operation is needed
-//            // >0 => slot available in RAM, "address" is the address in RAM where we can store swapped page from DISK 
-//        if(!(address = alloc_kpages(1))){
-//            victim_page = victim_pageSearch();
-//            address = victim_page*PAGE_SIZE + MIPS_KSEG0;
-//            swapOut((uint32_t*)address);
-//        }
-//        if(swapIn(index, (uint32_t*) address)){
-//            //error in swapping operation in RAM
-//            return -1;
-//        } else {
-//            //page copied in RAM
-//            return 0;
-//        }
-//
-//    }
-//    return 1;
-//}
 
 
 int sf_pageSearch(uint32_t page_num, pid_t pid){
@@ -133,6 +102,7 @@ int sf_freeSearch(void){
 
 
 int swapIn(int index){
+    P(vfs_S);
 	int RAM_address;
 	int result;
     int err;
@@ -150,12 +120,23 @@ int swapIn(int index){
     unsigned int pt_index = ((uint32_t)RAM_address - MIPS_KSEG0)/PAGE_SIZE; 
     unsigned int vaddress = sf_list[index].p_number * PAGE_SIZE;
     pid_t pid = sf_list[index].p_pid;
-    if(addPT(pt_index, vaddress, pid)){
+    if(addPT(pt_index, vaddress, pid, 1)){
+        V(vfs_S);
     	return EINVAL;
     }
-    if(addTLB(vaddress, pid, 0)){
-    	return EINVAL;
+
+    if (is_codeSegment(vaddress, proc_getas())) {
+        if(addTLB(vaddress, pid, 0)){
+            V(vfs_S);
+    	    return EINVAL;
+        }
+    } else if (is_dataSegment(vaddress, proc_getas())) {
+        if(addTLB(vaddress, pid, 1)){
+            V(vfs_S);
+    	    return EINVAL;
+        }
     }
+
 
     offset = sf_list[index].p_offset*PAGE_SIZE; 
 
@@ -168,10 +149,12 @@ int swapIn(int index){
 	if (err) {
 		kprintf("%s: Read error: %s\n", filename, strerror(err));
 		vfs_close(v);
+        V(vfs_S);
 		return -1;
 	}
     //page copied
     vfs_close(v);
+    V(vfs_S);
 
     /*---------------------------------- SF LIST UPDATE -------------------------------------------------*/
     sf_list[index].p_number = 0; 
@@ -186,6 +169,7 @@ int swapIn(int index){
  * @return {int} 0 if everything ok.
  */
 int swapOut(uint32_t* RAM_address){
+    P(vfs_S);
 	int result, err;
     off_t offset;
 	struct vnode *v;
@@ -209,6 +193,7 @@ int swapOut(uint32_t* RAM_address){
 	if (err) {
 		kprintf("%s: Write error: %s\n", filename, strerror(err));
 		vfs_close(v);
+        V(vfs_S);
 		return -1;
 	}
     vfs_close(v);
@@ -223,6 +208,7 @@ int swapOut(uint32_t* RAM_address){
 
     /*---------------------------------- PT LIST and TLB LIST UPDATE ------------------------------------*/
     free_kpages((uint32_t)RAM_address);
+    V(vfs_S);
     //kprintf("swapOut: pAddr: 0x%x\n", RAM_address);
 
     return 0;

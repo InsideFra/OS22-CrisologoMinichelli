@@ -54,7 +54,6 @@
 #include <addrspace.h>
 #include "autoconf.h"  // for pseudoconfig
 
-
 /*
  * These two pieces of data are maintained by the makefiles and build system.
  * buildconfig is the name of the config file the kernel was configured with.
@@ -74,6 +73,12 @@ static const char harvard_copyright[] =
     "Copyright (c) 2000, 2001-2005, 2008-2011, 2013, 2014\n"
     "   President and Fellows of Harvard College.  All rights reserved.\n";
 
+
+struct semaphore *runprogram_S = NULL;
+struct semaphore *vfs_S = NULL;
+struct semaphore *swapIN_S = NULL;
+struct semaphore *swapOUT_S = NULL;
+struct semaphore *memory_S = NULL;
 
 /*
  * Initial boot sequence.
@@ -136,6 +141,31 @@ boot(void)
 	vm_bootstrap();
 
 	kheap_nextgeneration();
+		
+	runprogram_S = sem_create("runprogram_S", 1);
+	if (runprogram_S == NULL) {
+		panic("synchtest: sem_create failed\n");
+	}
+	
+	swapIN_S = sem_create("swapIN_S", 1);
+	if (swapIN_S == NULL) {
+		panic("synchtest: sem_create failed\n");
+	}
+
+	swapOUT_S = sem_create("swapOUT_S", 1);
+	if (swapOUT_S == NULL) {
+		panic("synchtest: sem_create failed\n");
+	}
+
+	vfs_S = sem_create("vfs_S", 1);
+	if (vfs_S == NULL) {
+		panic("synchtest: sem_create failed\n");
+	}				
+	
+	memory_S = sem_create("memory_S", 1);
+	if (memory_S == NULL) {
+		panic("synchtest: sem_create failed\n");
+	}	
 
 	/*
 	 * Make sure various things aren't screwed up.
@@ -222,6 +252,11 @@ sys__exit(int status) {
 	curproc->p_name, 
 	(unsigned long long) duration.tv_sec,
 	(unsigned long) duration.tv_nsec);
+
+	kprintf("Program %s with tid %d has exited\n", 
+		curproc->p_name,
+		curproc->pid);
+
 	curproc->exit_status = status;
 	as_destroy(curproc->p_addrspace);
 	thread_exit();

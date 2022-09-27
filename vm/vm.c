@@ -17,6 +17,7 @@
 #include <kern/time.h>
 #include <clock.h>
 #include <syscall.h>
+#include <synch.h>
 
 // This variables indicates if the vm has been initialized
 _Bool VM_Started = false;
@@ -127,6 +128,9 @@ extern unsigned int TLB_Faults_wReplace;
 
 struct timespec duration_VMFAULTREAD1, duration_VMFAULTREAD2;
 
+extern struct semaphore *vfs_S;
+extern struct semaphore *memory_S;
+
 /**
  * Usually called by mips_trap().
  * @param {int} faulttype - Fault code error.
@@ -175,13 +179,14 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 			// This fault happen when a program tries to write to a only-read segment.
 			// If such exception occurs, the kernel must terminate the process.
 			// The kernel should not crash!
-			sys__exit(0);
+			//sys__exit(0);
+			panic("Function not developed yet");
 			break;
 	    case VM_FAULT_READ:
 			ret = pageSearch(faultaddress);
 			if (ret > 0) {
 				faultaddress &= PAGE_FRAME;
-				if (addTLB(faultaddress, curproc->pid, 1)) {
+				if (addTLB(faultaddress, curproc->pid, main_PG[ret].Dirty)) {
 					return EINVAL;
 				}
 				TLB_Reloads++;
@@ -200,19 +205,21 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 					index = swapfile_checkv1(p_num, curproc->pid);
 					if(index == noEntryFound){
 						/*---------------------------- LOAD FOR THE FIRST TIME -------------------*/
+						P(memory_S);
 						/*allocate page in PT*/
 						if(!(result = alloc_kpages(1))){
 						  //page table full, we have to free a page
 							victim_page = victim_pageSearch(data_seg);
 							paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;	
-							//swapOut((uint32_t*)paddress);
               				free_kpages(paddress);
 							result = alloc_kpages(1);
 						}
 
-						addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid );
+						addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid, 1); // Pls set dirty to one. After load_elf dirty will be set to zero
+						V(memory_S);
 						
 						/* Open the file. */
+						P(vfs_S);
 						result = vfs_open(curproc->p_name, O_RDONLY, 0, &v);
 						if (result) {
 							return result;
@@ -223,13 +230,16 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 						if (result) {
 							/* p_addrspace will go away when curproc is destroyed */
 							vfs_close(v);
+							V(vfs_S);
 							return result;
 						}
 						vfs_close(v);
+						V(vfs_S);
             			PF_Disk++;
 					  	PF_ELF++;
 					} else {
 						/*---------------------------- SWAP IN NEEDED ---------------------------*/
+						P(memory_S);
 						victim_page = victim_pageSearch(code_seg);
 						paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;
 						if(swapOut((uint32_t*)paddress) == 0){
@@ -239,6 +249,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 							PF_Swapfile++;
 							PF_Disk++;
 						}
+						V(memory_S);
 					}
 
 					// gettime(&after);
@@ -252,6 +263,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 					index = swapfile_checkv1(p_num, curproc->pid);
 					if(index == noEntryFound){
 						/*---------------------------- LOAD FOR THE FIRST TIME -------------------*/
+						P(memory_S);
 						/*allocate page in PT*/
 						if(!(result = alloc_kpages(1))){
 							//page table full, we have to free a page
@@ -264,10 +276,15 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 							result = alloc_kpages(1);
 						}
             
-						addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid );
+						addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid, 1);
+						V(memory_S);
+
 						/* Open the file. */
+						P(vfs_S);
 						result = vfs_open(curproc->p_name, O_RDONLY, 0, &v);
 						if (result) {
+							V(vfs_S);
+							vfs_close(v);
 							return result;
 						}
 
@@ -276,9 +293,11 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 						if (result) {
 							/* p_addrspace will go away when curproc is destroyed */
 							vfs_close(v);
+							V(vfs_S);
 							return result;
 						}
 						vfs_close(v);
+						V(vfs_S);
             			PF_ELF++;
 						PF_Disk++;
 
@@ -289,9 +308,11 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 						return 0;
 					} else {
 						/*---------------------------- SWAP IN NEEDED ---------------------------*/
+						gettime(&before);
+						P(memory_S);
 						victim_page = victim_pageSearch(data_seg);
 						paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;
-						gettime(&before);
+
 						if(swapOut((uint32_t*)paddress)){
 							return 1;
 						}
@@ -301,11 +322,11 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 						swapIn(index);
 						PF_Swapfile++;
 						PF_Disk++;
-
+						V(memory_S);
 						
 						timespec_sub(&after, &before, &duration);
 						timespec_add(&duration, &duration_VMFAULTREAD2, &duration_VMFAULTREAD2);
-						
+
 						return 0;
           			}
 				}
@@ -333,6 +354,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 					index = swapfile_checkv1(p_num, curproc->pid);
 					if(index == noEntryFound){
 						/*---------------------------- LOAD FOR THE FIRST TIME -------------------*/
+						P(memory_S);
 						/*allocate page in PT*/
 						if(!(result = alloc_kpages(1))){
 							//page table full, we have to free a page
@@ -345,9 +367,11 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 							result = alloc_kpages(1);
 						}
 
-						addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid );
+						addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid, 1);
+						V(memory_S);
 
 						/* Open the file. */
+						P(vfs_S);
 						result = vfs_open(curproc->p_name, O_RDONLY, 0, &v);
 						if (result) {
 							return result;
@@ -358,13 +382,17 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 						if (result) {
 							/* p_addrspace will go away when curproc is destroyed */
 							vfs_close(v);
+							V(vfs_S);
 							return result;
 						}
 						vfs_close(v);
+						V(vfs_S);
+
 						PF_ELF++;
             			PF_Disk++;
 					} else {
 						/*---------------------------- SWAP IN NEEDED ---------------------------*/
+						P(memory_S);
 						victim_page = victim_pageSearch(data_seg);
 						paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;
 						if(swapOut((uint32_t*)paddress) == 0){
@@ -374,6 +402,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 							PF_Disk++;
 							PF_Swapfile++;
 						}
+						V(memory_S);
 					}
 
 					gettime(&after);
@@ -386,8 +415,9 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 				return 1;
 			}
 			
-			if(addTLB(faultaddress, curproc->pid, 1))
-				return 1;
+			if (addTLB(faultaddress, curproc->pid, main_PG[ret].Dirty)) {
+					return EINVAL;
+			}
 			
 			TLB_Reloads++;
 			
@@ -441,7 +471,7 @@ paddr_t alloc_pages(uint8_t npages, vaddr_t vaddr) {
 
 		frame_index = (paddr - MIPS_KSEG0)/PAGE_SIZE;
 
-		addPT(frame_index, vaddr, pid);
+		addPT(frame_index, vaddr, pid, 1);
 		//DEBUG
 		DEBUG(DB_VM, "(addPT    ): [%3d] PN: %x\tpAddr: 0x%x\t-%s-",
 		    frame_index, 

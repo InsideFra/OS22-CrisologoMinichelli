@@ -8,6 +8,7 @@
 #include <pt.h>
 #include <addrspace.h>
 #include <proc.h>
+#include <current.h>
 
 extern unsigned int PAGETABLE_ENTRY;
 
@@ -31,6 +32,7 @@ int addTLB(vaddr_t vaddr, pid_t pid, _Bool Dirty)
 {
     (void) Dirty; // not used by now
     uint32_t ehi, elo;
+    uint32_t ehi_Search, elo_Search;
     paddr_t pa, paddr = 0;
     int32_t tlb_index_probe;
     uint32_t page_index = vaddr / PAGE_SIZE;
@@ -44,6 +46,7 @@ int addTLB(vaddr_t vaddr, pid_t pid, _Bool Dirty)
             if (main_PG[i].pid == pid)
             {
                 paddr = i * PAGE_SIZE + MIPS_KSEG0;
+                main_PG[i].Dirty = Dirty;
             }
     }
 
@@ -53,13 +56,13 @@ int addTLB(vaddr_t vaddr, pid_t pid, _Bool Dirty)
         print_page_table();
     }
 
-    ehi = vaddr & PAGE_FRAME; // PAGE ALIGN
+    ehi = (vaddr & PAGE_FRAME) | pid ; // PAGE ALIGN
     pa = paddr - MIPS_KSEG0;
 
-    if (is_codeSegment(ehi, proc_getas())) // Set the dirty bit only if is a code segment
-        elo = pa | TLBLO_VALID | TLBLO_DIRTY;
-    else
+    if (!Dirty) // Set the dirty bit only if is a code segment
         elo = pa | TLBLO_VALID;
+    else
+        elo = pa | TLBLO_VALID | TLBLO_DIRTY;
 
     int32_t spl = splhigh();
     tlb_index_probe = tlb_probe(ehi, elo);
@@ -69,37 +72,29 @@ int addTLB(vaddr_t vaddr, pid_t pid, _Bool Dirty)
         return 1;
     }
 
-    for (unsigned int i = 0; i < NUM_TLB; i++)
+    for (unsigned int i = 0; i < NUM_TLB; i++) // Searching for an invalid tlb entry
     {
-        tlb_read(&ehi, &elo, i);
+        tlb_read(&ehi_Search, &elo_Search, i);
 
-        if (!((elo & 0x00000fff) & TLBLO_VALID))
-        {                             // invalid
-            ehi = vaddr & PAGE_FRAME; // PAGE ALIGN
-            pa = paddr - MIPS_KSEG0;
-            elo = pa | TLBLO_VALID | TLBLO_DIRTY;
+        if (!((elo_Search & 0x00000fff) & TLBLO_VALID))
+        {                          
             tlb_write(ehi, elo, i);
+            freeTLBEntries--;
 
             tlb_index_probe = tlb_probe(ehi, elo);
+            splx(spl);
+
             if (tlb_index_probe < 0)
             {
                 panic("Generic TLB Error\n");
             }
 
             DEBUG(DB_TLB, "(TLBwrite ): [%3d] PN: %x\tpAddr: 0x%x\n", tlb_index_probe, ehi >> 12, paddr);
-
-            freeTLBEntries--;
-
-            splx(spl);
             return 0;
         }
     }
 
     /*---------------------------- TLB ROUND ROBIN REPLACEMENT --------------------------------*/
-
-    ehi = vaddr & PAGE_FRAME; // PAGE ALIGN
-    pa = paddr - MIPS_KSEG0;
-    elo = pa | TLBLO_VALID | TLBLO_DIRTY;
 
     TLB_victim = tlb_get_rr_victim();
     tlb_write(ehi, elo, TLB_victim);
@@ -111,14 +106,8 @@ int addTLB(vaddr_t vaddr, pid_t pid, _Bool Dirty)
     }
 
     DEBUG(DB_TLB, "(TLBreplac): [%3d] PN: %x\tpAddr: 0x%x\n", tlb_index_probe, ehi >> 12, paddr);
-
-    freeTLBEntries--;
     splx(spl);
     return 0;
-
-    // Yiu should not get here
-    panic("No tlb entry available\n");
-    return 1;
 }
 /**
  * This method is used to remove an entry to the hardware TLB.
@@ -207,4 +196,25 @@ int tlb_get_rr_victim(void)
     victim = next_victim;
     next_victim = (next_victim + 1) % NUM_TLB;
     return victim;
+}
+
+void TLB_Flush(void) {
+    // Flush the tlb
+	
+    // TLB invalid fill
+	// uint32_t ehi, elo;
+    // int32_t spl = splhigh();
+    // for (uint32_t i = 0; i < NUM_TLB; i++) {
+    //     tlb_read(&ehi, &elo, i);
+    //     if (!( (ehi & 0x00000003) == (uint32_t)curproc->pid)) {
+	// 	    ehi = TLBHI_INVALID(i);
+    // 	    elo = TLBLO_INVALID();
+	// 	    tlb_write(ehi, elo, i);
+    //     } else {
+    //         ;
+    //     }
+	// }
+	// splx(spl);
+	// freeTLBEntries = NUM_TLB;
+    // end TLB invalid fill
 }

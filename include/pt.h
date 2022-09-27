@@ -3,9 +3,7 @@
 
 // Inverted page table struct
 struct invertedPT {
-    _Bool CachingDisabled;
-    _Bool Referenced;
-    _Bool Modified;
+    _Bool Dirty;
     _Bool Valid;
     pid_t pid;
     uint16_t page_number;
@@ -25,7 +23,7 @@ enum PT_Error{
 };
 int pageSearch(vaddr_t addr);
 
-int addPT(uint32_t frame_index, vaddr_t vaddr, uint32_t pid);
+int addPT(uint32_t frame_index, vaddr_t vaddr, uint32_t pid, bool Dirty);
 
 int victim_pageSearch(bool type);
 int page_replacement(int page_num);

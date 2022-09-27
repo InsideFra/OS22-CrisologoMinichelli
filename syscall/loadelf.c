@@ -59,6 +59,14 @@
 #include <addrspace.h>
 #include <vnode.h>
 #include <elf.h>
+#include <pt.h>
+#include <vm_tlb.h>
+
+extern unsigned int PAGETABLE_ENTRY;
+
+extern struct invertedPT (*main_PG);
+
+struct spinlock load_elf_spinlock = SPINLOCK_INITIALIZER;
 
 /*
  * Load a segment at virtual address VADDR. The segment in memory
@@ -94,9 +102,6 @@ load_segment(struct addrspace *as, struct vnode *v,
 	      (unsigned long) filesize, (unsigned long) vaddr);
 	
 	if (is_dataSegment(vaddr, as)) {
-		// Check when the BSS segment starts, by looking when data segment starts to be filled with zeroes
-		// Called only the first time
-		// Improvement with huge program: ~122 to ..
 		if (!as->as_vbase_bss)
 			as->as_vbase_bss = as->as_vbase_data + (filesize/PAGE_SIZE) + 1;
 	}
@@ -150,6 +155,17 @@ load_segment(struct addrspace *as, struct vnode *v,
 	}
 #endif
 
+	
+	for (unsigned int i = 0; i < PAGETABLE_ENTRY; i++) {
+		if(is_codeSegment(vaddr, as)) {
+			if (main_PG[i].Valid == 1 && main_PG[i].pid == curproc->pid && is_codeSegment(main_PG[i].page_number*PAGE_SIZE, as)) {
+				main_PG[i].Dirty = 0;
+				removeTLB(main_PG[i].page_number*PAGE_SIZE);
+				addTLB(main_PG[i].page_number*PAGE_SIZE, curproc->pid, 0);
+			}
+		}
+	}
+
 	return result;
 }
 
@@ -173,8 +189,9 @@ load_elf(struct vnode *v, vaddr_t *entrypoint, vaddr_t start, uint32_t npages)
 	/*
 	 * Read the executable header from offset 0 in the file.
 	 */
-
 	uio_kinit(&iov, &ku, &eh, sizeof(eh), 0, UIO_READ);
+
+
 	result = VOP_READ(v, &ku);
 	if (result) {
 		return result;

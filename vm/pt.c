@@ -57,7 +57,7 @@ pageSearch(vaddr_t addr) {
     _Bool           found = 0;
     for(unsigned int i = 0; i < PAGETABLE_ENTRY; i++) {
         if (main_PG[i].Valid == 1) {
-            if (main_PG[i].page_number == addr/PAGE_SIZE) {
+            if (main_PG[i].page_number == addr/PAGE_SIZE && main_PG[i].pid == curproc->pid) {
                 index = i;
                 found = 1;
                 break;
@@ -84,7 +84,7 @@ pageSearch(vaddr_t addr) {
 * @date 09/08/2022
 * @return 0 if everything ok, else panic;
 */
-int addPT(uint32_t frame_index, vaddr_t vaddr, uint32_t pid) {
+int addPT(uint32_t frame_index, vaddr_t vaddr, uint32_t pid, bool Dirty) {
     vaddr &= PAGE_FRAME; // alignment
     vaddr = vaddr/PAGE_SIZE; // get page number
 
@@ -102,6 +102,7 @@ int addPT(uint32_t frame_index, vaddr_t vaddr, uint32_t pid) {
     main_PG[frame_index].page_number = vaddr;
     main_PG[frame_index].Valid = 1;
     main_PG[frame_index].pid = pid;
+    main_PG[frame_index].Dirty = Dirty;
     //main_PG[frame_index].victim_counter = pt_counter;
 
     // DEBUG
