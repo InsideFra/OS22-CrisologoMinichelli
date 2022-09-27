@@ -44,7 +44,7 @@
 /* Flags word for DEBUG() macro. */
 //uint32_t dbflags = DB_VM;
 //uint32_t dbflags = DB_TLB;
-uint32_t dbflags = DB_EXEC | DB_VMINIT ;
+uint32_t dbflags = DB_EXEC | DB_VMINIT;
 //uint32_t dbflags = 0;
 
 /* Lock for non-polled kprintfs */
@@ -106,6 +106,7 @@ kprintf(const char *fmt, ...)
 	// 	&& curthread->t_in_interrupt == false
 	// 	&& curthread->t_curspl == 0
 	// 	&& curcpu->c_spinlocks == 0;
+	
 	dolock = 0;
 	
 	if (dolock) {

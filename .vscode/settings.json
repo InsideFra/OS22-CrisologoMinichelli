@@ -16,7 +16,9 @@
         "*.tcc": "c",
         "reboot.h": "c",
         "syscall.h": "c",
-        "time.h": "c"
+        "time.h": "c",
+        "*.def": "c",
+        "random": "c"
     },
     "C_Cpp.errorSquiggles": "Enabled"
 }
