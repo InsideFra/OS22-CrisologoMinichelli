@@ -134,15 +134,15 @@ struct timespec duration_VMFAULTREAD1, duration_VMFAULTREAD2;
  * @return {int} 0 if fault is addressed.
  */
 int
-vm_fault(int faulttype, vaddr_t faultaddress)
+vm_fault(int faulttype, struct trapframe *tf)
 {
 	// Time stats
 	struct timespec before, after, duration;
 	gettime(&before);
 
 	struct addrspace *as;
-	//pid_t pid = curproc->pid;
-
+	vaddr_t faultaddress = tf->tf_vaddr;
+	
 	as = proc_getas();
 	if (as == NULL) {
 		/*
@@ -175,13 +175,13 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 			// This fault happen when a program tries to write to a only-read segment.
 			// If such exception occurs, the kernel must terminate the process.
 			// The kernel should not crash!
-			sys__exit(0);
+			//sys__exit(0);
 			break;
 	    case VM_FAULT_READ:
 			ret = pageSearch(faultaddress);
 			if (ret > 0) {
 				faultaddress &= PAGE_FRAME;
-				if (addTLB(faultaddress, curproc->pid, 1)) {
+				if (addTLB(faultaddress, curproc->pid)) {
 					return EINVAL;
 				}
 				TLB_Reloads++;
@@ -210,7 +210,11 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 							result = alloc_kpages(1);
 						}
 
-						addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid );
+						// In this case, we are loading a code segment from the ELF file
+						// This code segment is not in the page table neither in the swapFile (usually code segment are not in the swap File)
+						// When we will load the segment, we will write to the code frames, so we set for now the Dirty bit to 1
+						// Then after the upload, we will set it back to zero
+						addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid, 1);
 						
 						/* Open the file. */
 						result = vfs_open(curproc->p_name, O_RDONLY, 0, &v);
@@ -264,7 +268,9 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 							result = alloc_kpages(1);
 						}
             
-						addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid );
+						// Dirty bit is set to 1, because this is a data Segment
+						addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid, 1);
+						
 						/* Open the file. */
 						result = vfs_open(curproc->p_name, O_RDONLY, 0, &v);
 						if (result) {
@@ -345,7 +351,8 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 							result = alloc_kpages(1);
 						}
 
-						addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid );
+						// Dirty bit is set to 1, because this is a data Segment
+						addPT(( (result-MIPS_KSEG0)/PAGE_SIZE), faultaddress & PAGE_FRAME, curproc->pid, 1);
 
 						/* Open the file. */
 						result = vfs_open(curproc->p_name, O_RDONLY, 0, &v);
@@ -386,7 +393,11 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 				return 1;
 			}
 			
-			if(addTLB(faultaddress, curproc->pid, 1))
+			// Complete the operation, the add to the TLB
+			// load s4 in tf->vaddr
+			kprintf("Loading 0x%x to 0x%x\n", tf->tf_s4, tf->tf_vaddr);
+
+			if(addTLB(faultaddress, curproc->pid))
 				return 1;
 			
 			TLB_Reloads++;
@@ -428,7 +439,7 @@ void vm_tlbshootdown(const struct tlbshootdown *tlb) {
  * @param {vaddr} The virtual address that has to be mapped with the physical frame
  * @return 0 if everything ok.
  */
-paddr_t alloc_pages(uint8_t npages, vaddr_t vaddr) {
+paddr_t alloc_pages(uint8_t npages, vaddr_t vaddr, bool Dirty) {
 	paddr_t paddr = 0;
 	uint32_t frame_index = 0;
 	uint32_t pid = curproc->pid;
@@ -441,12 +452,12 @@ paddr_t alloc_pages(uint8_t npages, vaddr_t vaddr) {
 
 		frame_index = (paddr - MIPS_KSEG0)/PAGE_SIZE;
 
-		addPT(frame_index, vaddr, pid);
+		addPT(frame_index, vaddr, pid, Dirty);
 		//DEBUG
 		DEBUG(DB_VM, "(addPT    ): [%3d] PN: %x\tpAddr: 0x%x\t-%s-",
 		    frame_index, 
 		    main_PG[frame_index].page_number, 
-		    PADDR_TO_KVADDR(4096*(frame_index)), 
+		    PADDR_TO_KVADDR(4096*(frame_index)),
 		    main_PG[frame_index].Valid == 1 ? "V" : "N");
 		
 		if (main_PG[frame_index].Valid == 1)

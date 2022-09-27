@@ -38,6 +38,9 @@
 
 #include <types.h>
 #include <machine/vm.h>
+#include <mips/specialreg.h>
+#include <lib.h>
+#include <mips/trapframe.h>
 
 
 /* Fault-type arguments to vm_fault() */
@@ -75,7 +78,7 @@ static const size_t sizes[NSIZES] = { 16, 32, 64, 128, 256, 512, 1024, 2048 };
 void vm_bootstrap(void);
 
 /* Fault handling function called by trap code */
-int vm_fault(int faulttype, vaddr_t faultaddress);
+int vm_fault(int faulttype, struct trapframe *tf);
 
 paddr_t alloc_kpages(unsigned npages);
 void free_kpages(paddr_t paddr);
@@ -83,7 +86,7 @@ void free_kpages(paddr_t paddr);
 /* TLB shootdown handling called from interprocessor_interrupt */
 void vm_tlbshootdown(const struct tlbshootdown *);
 
-paddr_t alloc_pages(uint8_t npages, vaddr_t vaddr);
+paddr_t alloc_pages(uint8_t npages, vaddr_t vaddr, bool Dirty);
 
 // for debug purpose
 void print_page_table(void);
