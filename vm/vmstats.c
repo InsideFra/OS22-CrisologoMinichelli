@@ -50,13 +50,13 @@ void print_vm_stat(void) {
     kprintf( "sys161: (f) TLB misses that required a page to be loaded from the ELF  file: %d\n", PF_ELF);
     kprintf( "sys161: (g) TLB misses that required a page to be loaded from the swap file: %d\n", PF_Swapfile);
     kprintf( "sys161: (h) TLB misses that required a page to be loaded to   the swap file: %d\n", SF_Writes);
-    kprintf( "sys161: (i) Time passed in pageSearch : %llu.%09lu seconds\n", 
-                	(unsigned long long) duration_pageSearch.tv_sec,
-	                (unsigned long) duration_pageSearch.tv_nsec);
-    kprintf( "sys161: (i) Time passed in looked function1: %llu.%09lu seconds\n", 
-                	(unsigned long long) duration_VMFAULTREAD1.tv_sec,
-	                (unsigned long) duration_VMFAULTREAD1.tv_nsec);
-    kprintf( "sys161: (i) Time passed in looked function2: %llu.%09lu seconds\n", 
-                	(unsigned long long) duration_VMFAULTREAD2.tv_sec,
-	                (unsigned long) duration_VMFAULTREAD2.tv_nsec);
+    // kprintf( "sys161: (i) Time passed in pageSearch : %llu.%09lu seconds\n", 
+    //             	(unsigned long long) duration_pageSearch.tv_sec,
+	//                 (unsigned long) duration_pageSearch.tv_nsec);
+    // kprintf( "sys161: (i) Time passed in looked function1: %llu.%09lu seconds\n", 
+    //             	(unsigned long long) duration_VMFAULTREAD1.tv_sec,
+	//                 (unsigned long) duration_VMFAULTREAD1.tv_nsec);
+    // kprintf( "sys161: (i) Time passed in looked function2: %llu.%09lu seconds\n", 
+    //             	(unsigned long long) duration_VMFAULTREAD2.tv_sec,
+	//                 (unsigned long) duration_VMFAULTREAD2.tv_nsec);
 }

@@ -102,6 +102,20 @@ int addPT(uint32_t frame_index, vaddr_t vaddr, uint32_t pid, bool Dirty) {
     main_PG[frame_index].Dirty = Dirty;
     //main_PG[frame_index].victim_counter = pt_counter;
 
+    //DEBUG
+    // DEBUG(DB_VM, "(addPT    ): [%3d] PN: %x\tpAddr: 0x%x\t-%s-",
+    //     frame_index, 
+    //     main_PG[frame_index].page_number, 
+    //     PADDR_TO_KVADDR(4096*(frame_index)),
+    //     main_PG[frame_index].Valid == 1 ? "V" : "N");
+    
+    // if (main_PG[frame_index].Valid == 1)
+    //     DEBUG(DB_VM, "%s-\t", main_PG[frame_index].pid == 0 ? "KERNEL" : "USER");
+    // else 
+    //     DEBUG(DB_VM,"\t");
+        
+    // DEBUG(DB_VM, "\n");
+
     return 0;
 }
 

@@ -81,7 +81,7 @@ void vm_bootstrap(void) {
 		tlb_write(ehi, elo, i);
 	}
 	splx(spl);
-	freeTLBEntries = NUM_TLB;
+	freeTLBEntries = NUM_TLB ;
     // end TLB invalid fill
 
 	swapfile_init();
@@ -309,8 +309,8 @@ vm_fault(int faulttype, struct trapframe *tf)
 						PF_Disk++;
 
 						
-						timespec_sub(&after, &before, &duration);
-						timespec_add(&duration, &duration_VMFAULTREAD2, &duration_VMFAULTREAD2);
+						//timespec_sub(&after, &before, &duration);
+						//timespec_add(&duration, &duration_VMFAULTREAD2, &duration_VMFAULTREAD2);
 						
 						return 0;
           			}
@@ -395,7 +395,7 @@ vm_fault(int faulttype, struct trapframe *tf)
 			
 			// Complete the operation, the add to the TLB
 			// load s4 in tf->vaddr
-			kprintf("Loading 0x%x to 0x%x\n", tf->tf_s4, tf->tf_vaddr);
+			//kprintf("Loading 0x%x to 0x%x\n", tf->tf_s4, tf->tf_vaddr);
 
 			if(addTLB(faultaddress, curproc->pid))
 				return 1;
@@ -453,19 +453,6 @@ paddr_t alloc_pages(uint8_t npages, vaddr_t vaddr, bool Dirty) {
 		frame_index = (paddr - MIPS_KSEG0)/PAGE_SIZE;
 
 		addPT(frame_index, vaddr, pid, Dirty);
-		//DEBUG
-		DEBUG(DB_VM, "(addPT    ): [%3d] PN: %x\tpAddr: 0x%x\t-%s-",
-		    frame_index, 
-		    main_PG[frame_index].page_number, 
-		    PADDR_TO_KVADDR(4096*(frame_index)),
-		    main_PG[frame_index].Valid == 1 ? "V" : "N");
-		
-		if (main_PG[frame_index].Valid == 1)
-		    DEBUG(DB_VM, "%s-\t", main_PG[frame_index].pid == 0 ? "KERNEL" : "USER");
-		else 
-		    DEBUG(DB_VM,"\t");
-			
-		DEBUG(DB_VM, "\n");
 	}
 	return 0;
 }

@@ -110,7 +110,7 @@ int addTLB(vaddr_t vaddr, pid_t pid)
 
     DEBUG(DB_TLB, "(TLBreplac): [%3d] PN: %x\tpAddr: 0x%x\n", tlb_index_probe, ehi >> 12, paddr);
 
-    freeTLBEntries--;
+    //freeTLBEntries--;
     splx(spl);
     return 0;
 

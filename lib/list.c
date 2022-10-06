@@ -49,7 +49,7 @@ int addToFrameList(uint32_t value, uint8_t position) {
                     }
                 }
                 bufferFrame->next_frame = currentFrame;
-                DEBUG(DB_VM, "Added frame %d to the frame list (addr: 0x%x) at 0x%x\n", bufferFrame->frame_number, (uint32_t)frame_list, (uint32_t)bufferFrame);
+                //DEBUG(DB_VM, "Added frame %d to the frame list (addr: 0x%x) at 0x%x\n", bufferFrame->frame_number, (uint32_t)frame_list, (uint32_t)bufferFrame);
                 return 0;
                 break;
             } 

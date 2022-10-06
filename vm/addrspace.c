@@ -184,8 +184,8 @@ as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize,
 			
 			// Update TLB??
 			DEBUG(DB_VM, "CODE SEGMENT: ");
-			// if (freeTLBEntries)
-			// 	addTLB(as->as_vbase_code+i*PAGE_SIZE, curproc->pid);
+			if (freeTLBEntries)
+				addTLB(as->as_vbase_code+i*PAGE_SIZE, curproc->pid);
 		}
 		return 0;
 	} else {
@@ -215,12 +215,13 @@ as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize,
 				DEBUG(DB_VM, "DATA SEGMENT: Demand Paging not needed in this case\n");
 				as->as_npages_data_loaded = as->as_npages_data;
 			}
+			DEBUG(DB_VM, "DATA SEGMENT: Loading %d pages\n", as->as_npages_data_loaded);
 			// END DEBUG SECTION
 			
 			for (unsigned int i = 0; i < as->as_npages_data_loaded; i++) {
 				
 				// Virtualizzation
-				DEBUG(DB_VM, "DATA SEGMENT: ");
+				//DEBUG(DB_VM, "DATA SEGMENT: ");
 				
 				// We are defining a region for the data segment
 				// We set the dirty bit to 1
@@ -229,7 +230,7 @@ as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize,
 				}
 
 				// // Update TLB??
-				DEBUG(DB_VM, "DATA SEGMENT: ");
+				//DEBUG(DB_VM, "DATA SEGMENT: ");
 				if (freeTLBEntries)
 					addTLB(as->as_vbase_data+i*PAGE_SIZE, curproc->pid);
 			}

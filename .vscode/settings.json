@@ -17,7 +17,12 @@
         "reboot.h": "c",
         "syscall.h": "c",
         "time.h": "c",
-        "trapframe.h": "c"
+        "trapframe.h": "c",
+        "ltrace.h": "c",
+        "vfs.h": "c",
+        "mainbus.h": "c",
+        "synch.h": "c",
+        "current.h": "c"
     },
     "C_Cpp.errorSquiggles": "Enabled"
 }
