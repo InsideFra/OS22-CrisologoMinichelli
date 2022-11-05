@@ -175,7 +175,7 @@ vm_fault(int faulttype, struct trapframe *tf)
 			// This fault happen when a program tries to write to a only-read segment.
 			// If such exception occurs, the kernel must terminate the process.
 			// The kernel should not crash!
-			//sys__exit(0);
+			sys__exit(0);
 			break;
 	    case VM_FAULT_READ:
 			ret = pageSearch(faultaddress);
@@ -230,6 +230,10 @@ vm_fault(int faulttype, struct trapframe *tf)
 							return result;
 						}
 						vfs_close(v);
+
+						// The code segment has been load and now is write protected
+						main_PG[((result-MIPS_KSEG0)/PAGE_SIZE)].Dirty = 0;
+
             			PF_Disk++;
 					  	PF_ELF++;
 					} else {

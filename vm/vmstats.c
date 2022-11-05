@@ -39,7 +39,7 @@ unsigned int PF_Swapfile = 0;
 unsigned int SF_Writes = 0;
 
 extern struct timespec duration_pageSearch;
-extern struct timespec duration_VMFAULTREAD1, duration_VMFAULTREAD2;
+extern struct timespec duration_VMFAULTREAD1, duration_VMFAULTREAD2, duration_swap;
 
 void print_vm_stat(void) {
     kprintf( "sys161: (a) TLB Faults: %d\n", TLB_Faults);
@@ -59,4 +59,7 @@ void print_vm_stat(void) {
     // kprintf( "sys161: (i) Time passed in looked function2: %llu.%09lu seconds\n", 
     //             	(unsigned long long) duration_VMFAULTREAD2.tv_sec,
 	//                 (unsigned long) duration_VMFAULTREAD2.tv_nsec);
+    kprintf( "sys161: (i) Time passed in swapIN + swapOUT: %llu.%09lu seconds\n", 
+                	(unsigned long long) duration_swap.tv_sec,
+	                (unsigned long) duration_swap.tv_nsec);
 }

@@ -59,6 +59,9 @@
 #include <addrspace.h>
 #include <vnode.h>
 #include <elf.h>
+#include <pt.h>
+
+extern struct invertedPT(*main_PG);
 
 /*
  * Load a segment at virtual address VADDR. The segment in memory
@@ -115,6 +118,15 @@ load_segment(struct addrspace *as, struct vnode *v,
 	if (result) {
 		return result;
 	}
+
+	if (is_codeSegment(vaddr, as)) {
+		result = pageSearch(vaddr);
+		if (result != noEntryFound) {
+			main_PG[result].Dirty = 0;
+		}
+	}
+	
+	result = 0;
 
 	if (u.uio_resid != 0) {
 		/* short read; problem with executable? */

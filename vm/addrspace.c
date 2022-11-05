@@ -177,7 +177,10 @@ as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize,
 			DEBUG(DB_VM, "CODE SEGMENT: ");
 
 			// We are defining a region for the code segment, which will be uploaded for the first time
-			// We set the dirty bit to 1
+			// In this case, we are loading a code segment from the ELF file
+			// This code segment is not in the page table neither in the swapFile
+			// When we will load the segment, we will write to the code frames, so we set for now the Dirty bit to 1
+			// Then after the upload, we will set it back to zero
 			if (alloc_pages(1, as->as_vbase_code+i*PAGE_SIZE, 1)) {
 				panic("Error during memory allocation. See alloc_kpages called by as_define_region.\n");
 			}

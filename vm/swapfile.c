@@ -17,6 +17,11 @@ for managing and manipulating the swapfile */
 #include <uio.h>
 #include <vm_tlb.h>
 #include <current.h>
+#include <kern/time.h>
+#include <clock.h>
+
+struct timespec duration_swap;
+struct timespec before, after, duration;
 
 struct list_param sf_list[SWAPFILE_SIZE];   
 struct lock *sf_lock;
@@ -133,6 +138,7 @@ int sf_freeSearch(void){
 
 
 int swapIn(int index){
+    gettime(&before);
 	int RAM_address;
 	int result;
     int err;
@@ -180,6 +186,9 @@ int swapIn(int index){
     sf_list[index].p_number = 0; 
     sf_list[index].p_pid = 0; 
     //kprintf("swapIN: Index: %d, pAddr: 0x%x\n", index, (uint32_t)RAM_address);
+    gettime(&after);
+    timespec_sub(&after, &before, &duration);
+    timespec_add(&duration, &duration_swap, &duration_swap);
     return 0;
 }
 
@@ -189,6 +198,7 @@ int swapIn(int index){
  * @return {int} 0 if everything ok.
  */
 int swapOut(uint32_t* RAM_address){
+    gettime(&before);
 	int result, err;
     off_t offset;
 	struct vnode *v;
@@ -227,6 +237,10 @@ int swapOut(uint32_t* RAM_address){
     /*---------------------------------- PT LIST and TLB LIST UPDATE ------------------------------------*/
     free_kpages((uint32_t)RAM_address);
     //kprintf("swapOut: pAddr: 0x%x\n", RAM_address);
+
+    gettime(&after);
+    timespec_sub(&after, &before, &duration);
+    timespec_add(&duration, &duration_swap, &duration_swap);
 
     return 0;
 }
