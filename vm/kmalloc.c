@@ -35,6 +35,7 @@
 #include <vm_tlb.h>
 #include <list.h>
 #include <current.h>
+#include <coremap.h>
 
 extern _Bool VM_Started;
 
@@ -1242,21 +1243,11 @@ paddr_t alloc_kpages(unsigned npages) {
 		spinlock_release(&kmalloc_spinlock);
 		return PADDR_TO_KVADDR(addr);
 	}
-
-	// Find space in physical memory ram through the use of the Frame List FIFO
-	currentFrame = frame_list;
-	if (currentFrame == NULL) {
+	FIFOSize = check_free_frame(npages);
+	if (FIFOSize == 0) {
 		spinlock_release(&kmalloc_spinlock);
 		return 0;
 	}
-	FIFOSize = 1;
-	for (unsigned int p = 1; p < npages; p++) {
-		if (currentFrame->next_frame == NULL) {
-			break;
-		}
-		FIFOSize++;
-	}
-
 	uint32_t index = 0;
 	if (FIFOSize == npages) {
 		for (unsigned int p = 0; p < npages; p++) {

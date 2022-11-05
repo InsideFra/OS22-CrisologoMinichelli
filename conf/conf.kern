@@ -351,6 +351,7 @@ file    vm/swapfile.c
 file    vm/vm_tlb.c 
 file    vm/vmstats.c
 file    vm/vm.c 
+file    vm/coremap.c 
 
 file  vm/addrspace.c
 
