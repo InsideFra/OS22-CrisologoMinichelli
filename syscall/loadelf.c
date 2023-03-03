@@ -60,6 +60,8 @@
 #include <vnode.h>
 #include <elf.h>
 #include <pt.h>
+#include <segments.h>
+#include <vm_tlb.h>
 
 extern struct invertedPT(*main_PG);
 
@@ -94,7 +96,7 @@ load_segment(struct addrspace *as, struct vnode *v,
 	}
 
 	DEBUG(DB_EXEC, "ELF: Loading %lu bytes to 0x%lx\n",
-	      (unsigned long) filesize, (unsigned long) vaddr);
+	      (unsigned long) memsize, (unsigned long) vaddr);
 	
 	if (is_dataSegment(vaddr, as)) {
 		// Check when the BSS segment starts, by looking when data segment starts to be filled with zeroes
@@ -119,12 +121,14 @@ load_segment(struct addrspace *as, struct vnode *v,
 		return result;
 	}
 
+	removeTLBv1(vaddr);
 	if (is_codeSegment(vaddr, as)) {
 		result = pageSearch(vaddr);
 		if (result != noEntryFound) {
 			main_PG[result].Dirty = 0;
 		}
 	}
+	addTLB(vaddr, curproc->pid);
 	
 	result = 0;
 
@@ -315,13 +319,13 @@ load_elf(struct vnode *v, vaddr_t *entrypoint, vaddr_t start, uint32_t npages)
 		if (start == 0) {
 			if (ph.p_vaddr == as->as_vbase_code) { // code segment
 				if (ph.p_filesz/(uint32_t)PAGE_SIZE > MAX_CODE_SEGMENT_PAGES) { // Demand paging
-					ph.p_memsz = MAX_CODE_SEGMENT_PAGES*PAGE_SIZE;
+					ph.p_memsz = as->as_npages_code_loaded*PAGE_SIZE;
 				} else { // Not need for demand paging
 					
 				}
 			} else if (ph.p_vaddr == as->as_vbase_data) { // data segment
 				if (ph.p_filesz/(uint32_t)PAGE_SIZE > MAX_DATA_SEGMENT_PAGES) { // Demand paging
-					ph.p_memsz = MAX_DATA_SEGMENT_PAGES*PAGE_SIZE;
+					ph.p_memsz = as->as_npages_data_loaded*PAGE_SIZE;
 				} else { // Not need for demand paging
 
 				}

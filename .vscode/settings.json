@@ -22,7 +22,8 @@
         "vfs.h": "c",
         "mainbus.h": "c",
         "synch.h": "c",
-        "current.h": "c"
+        "current.h": "c",
+        "segments.h": "c"
     },
     "C_Cpp.errorSquiggles": "Enabled"
 }

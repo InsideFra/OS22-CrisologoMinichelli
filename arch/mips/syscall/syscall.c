@@ -117,22 +117,24 @@ syscall(struct trapframe *tf)
 
 		case SYS_write:
 			if (tf->tf_a0 == STDOUT_FILENO || STDERR_FILENO) {
-				kprintf("%s", (char*) tf->tf_a1);
+				for(unsigned int i=0; i<tf->tf_a2; i++)
+					kprintf("%c", ((char *)tf->tf_a1)[i]);
 				err = 0;
 			}
+			retval = tf->tf_a2;
 		break;
 
 		case SYS_read:
 			kprintf("Syscall: read(%d,%x,%d)\n",
 				(unsigned int) tf->tf_a0,(int) tf->tf_a1,(unsigned int) tf->tf_a2);
-			
+
 			err = 0;
+			retval = tf->tf_a2;
 		break;
-	    /* Add stuff here */
 
 	    default:
-			kprintf("Unknown syscall\n");
-			err = 0;
+			kprintf("Unknown syscall n. %d\n", callno);
+			err = 1;
 		break;
 	}
 

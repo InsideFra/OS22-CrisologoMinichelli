@@ -142,6 +142,10 @@ boot(void)
 	 */
 	COMPILE_ASSERT(sizeof(userptr_t) == sizeof(char *));
 	COMPILE_ASSERT(sizeof(*(userptr_t)0) == sizeof(char));
+
+	for(unsigned int i = 0x0; i < 0x0000FFFF; i ++) {
+		i++;
+	}
 }
 
 /*

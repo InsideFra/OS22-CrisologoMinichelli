@@ -11,6 +11,7 @@
 #include <current.h>
 #include <kern/time.h>
 #include <clock.h>
+#include <segments.h>
 
 // We need to divide the physiical memory into fixed-sized blocks called FRAMES
 // Divide logical memory into blocks of same size called PAGES

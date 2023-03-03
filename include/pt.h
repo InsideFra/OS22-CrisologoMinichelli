@@ -5,8 +5,8 @@
 struct invertedPT {
     _Bool Dirty;
     _Bool Valid;
-    pid_t pid;
-    uint16_t page_number;
+    uint8_t pid;
+    uint32_t page_number;
     uint16_t victim_counter;
 };
 

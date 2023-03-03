@@ -29,8 +29,8 @@ uint32_t TLB_victim;
  */
 int addTLB(vaddr_t vaddr, pid_t pid)
 {
-    uint32_t ehi, elo;
-    paddr_t pa, paddr = 0;
+    uint32_t ehi = 0, elo = 0;
+    paddr_t pa = 0, paddr = 0;
     int32_t tlb_index_probe;
     uint32_t page_index = vaddr / PAGE_SIZE;
 
@@ -48,6 +48,8 @@ int addTLB(vaddr_t vaddr, pid_t pid)
                     elo = pa | TLBLO_VALID | TLBLO_DIRTY;
                 else
                     elo = pa | TLBLO_VALID;
+
+                break;
             }
     }
 
@@ -69,13 +71,12 @@ int addTLB(vaddr_t vaddr, pid_t pid)
 
     for (unsigned int i = 0; i < NUM_TLB; i++)
     {
-        tlb_read(&ehi, &elo, i);
+        uint32_t ehi_search, elo_search;
+        tlb_read(&ehi_search, &elo_search, i);
 
-        if (!((elo & 0x00000fff) & TLBLO_VALID))
-        {                             // invalid
-            ehi = vaddr & PAGE_FRAME; // PAGE ALIGN
-            pa = paddr - MIPS_KSEG0;
-            elo = pa | TLBLO_VALID | TLBLO_DIRTY;
+        if (!(elo_search & TLBLO_VALID)) 
+        {                             
+            // Invalid TLB Entries - It can be used
             tlb_write(ehi, elo, i);
 
             tlb_index_probe = tlb_probe(ehi, elo);
@@ -84,7 +85,7 @@ int addTLB(vaddr_t vaddr, pid_t pid)
                 panic("Generic TLB Error\n");
             }
 
-            DEBUG(DB_TLB, "(TLBwrite ): [%3d] PN: %x\tpAddr: 0x%x\n", tlb_index_probe, ehi >> 12, paddr);
+            DEBUG(DB_TLB, "(TLBwrite ): [%3d] PN: %x\tpAddr: 0x%x, Dirty: %d\n", tlb_index_probe, ehi >> 12, paddr, (elo & TLBLO_DIRTY));
 
             freeTLBEntries--;
 
@@ -118,6 +119,7 @@ int addTLB(vaddr_t vaddr, pid_t pid)
     panic("No tlb entry available\n");
     return 1;
 }
+
 /**
  * This method is used to remove an entry to the hardware TLB.
  * @author @InsideFra
@@ -205,4 +207,20 @@ int tlb_get_rr_victim(void)
     victim = next_victim;
     next_victim = (next_victim + 1) % NUM_TLB;
     return victim;
+}
+
+extern unsigned int TLB_Invalidations;
+void invalidate_TLB(void) {
+    TLB_Invalidations++;
+	// TLB invalid fill
+	uint32_t ehi, elo;
+    int32_t spl = splhigh();
+    for (uint32_t i = 0; i < NUM_TLB; i++) {
+		ehi = TLBHI_INVALID(i);
+    	elo = TLBLO_INVALID();
+		tlb_write(ehi, elo, i);
+	}
+	splx(spl);
+	freeTLBEntries = NUM_TLB ;
+    // end TLB invalid fill
 }

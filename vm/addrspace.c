@@ -36,6 +36,7 @@
 #include <pt.h>
 #include <vm.h>
 #include <current.h>
+#include <vm_tlb.h>
 
 extern struct frame_list_struct *frame_list;
 
@@ -107,7 +108,11 @@ as_destroy(struct addrspace *as)
 			free_kpages(i*4096 + MIPS_KSEG0);
 		}
 	}
+
+	invalidate_TLB();
 }
+
+static _Bool TLB_PID = 0;
 
 void
 as_activate(void)
@@ -121,11 +126,12 @@ as_activate(void)
 		 * prior address space in place.
 		 */
 		return;
+	} else {
+		if (curproc->pid != TLB_PID) {
+			invalidate_TLB();
+			TLB_PID = curproc->pid;
+		}
 	}
-
-	/*
-	 * Write this.
-	 */
 }
 
 void
@@ -169,12 +175,13 @@ as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize,
 			DEBUG(DB_VM, "CODE SEGMENT: Demand Paging not needed in this case\n");
 			as->as_npages_code_loaded = as->as_npages_code;
 		}
+		DEBUG(DB_VM, "DATA SEGMENT: Loading %d pages\n", as->as_npages_code_loaded);
 		// END DEBUG SECTION
 		
 		for (unsigned int i = 0; i < as->as_npages_code_loaded; i++) {
 			// Virtualizzation
 			// For each code page, allocate a physical frame and associate it to a page.
-			DEBUG(DB_VM, "CODE SEGMENT: ");
+			//DEBUG(DB_VM, "CODE SEGMENT: ");
 
 			// We are defining a region for the code segment, which will be uploaded for the first time
 			// In this case, we are loading a code segment from the ELF file
@@ -186,7 +193,7 @@ as_define_region(	struct addrspace *as, vaddr_t vaddr, size_t memsize,
 			}
 			
 			// Update TLB??
-			DEBUG(DB_VM, "CODE SEGMENT: ");
+			//DEBUG(DB_VM, "CODE SEGMENT: ");
 			if (freeTLBEntries)
 				addTLB(as->as_vbase_code+i*PAGE_SIZE, curproc->pid);
 		}
@@ -258,10 +265,11 @@ as_prepare_load(struct addrspace *as)
 {
 	paddr_t addr = 0;
 	DEBUG(DB_VM, "\nCODE: vAddr = 0x%x\t Pages Allocated: %d\n", as->as_vbase_code, 
-		((as->as_npages_code > MAX_CODE_SEGMENT_PAGES) ? MAX_CODE_SEGMENT_PAGES : as->as_npages_code));
+		//((as->as_npages_code > MAX_CODE_SEGMENT_PAGES) ? MAX_CODE_SEGMENT_PAGES : as->as_npages_code));
+		as->as_npages_code_loaded);
 
-	DEBUG(DB_VM, "\nDATA: vAddr = 0x%x\t\n",
-		as->as_vbase_data);
+	DEBUG(DB_VM, "\nDATA: vAddr = 0x%x\t Pages Allocated: %d\n", as->as_vbase_data,
+		as->as_npages_data_loaded);
 
 	as->as_vbase_stack = as->as_vbase_data + PAGE_SIZE*as->as_npages_data;
 	
@@ -299,64 +307,5 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 	KASSERT(as->as_vbase_stack != 0);
 	DEBUG(DB_VM, "\nDefining stack pointer at address: 0x%x\n", (uint32_t)*stackptr);
 	return 0;
-}
-
-/**
-* This method checks if the virtual address passed belong to a code segment.
-* This methos uses the address space to achieve this.
-* @author @InsideFra
-* @param vaddr The virtual address (0x00..)
-* @param as the address space
-* @date 09/08/2022
-* @return 1 if everything is okay else ..
-*/
-int
-is_codeSegment(vaddr_t vaddr, struct addrspace* as) {
-    vaddr_t offset = (vaddr_t)(as->as_npages_code << 12);
-    if (vaddr <= as->as_vbase_code + offset) {
-        if (vaddr >= as->as_vbase_code)
-            return 1;
-    }
-    return 0;
-}
-
-/**
-* This method checks if the virtual address passed belong to a data segment.
-* This methos uses the address space to achieve this.
-* @author @InsideFra
-* @param vaddr The virtual address (0x00..)
-* @param as the address space
-* @date 09/08/2022
-* @return 1 if everything is okay else ..
-*/
-int
-is_dataSegment(vaddr_t vaddr, struct addrspace* as) {
-    vaddr_t offset = (vaddr_t)(as->as_npages_data << 12);
-    if (vaddr <= as->as_vbase_data + offset) {
-        if (vaddr >= as->as_vbase_data) {
-            return 1;
-        }
-    }
-    return 0;
-}
-
-/**
-* This method checks if the virtual address passed belong to a bss segment.
-* This methos uses the address space to achieve this.
-* @author @InsideFra
-* @param vaddr The virtual address (0x00..)
-* @param as the address space
-* @date 25/08/2022
-* @return 1 if everything is okay else ..
-*/
-int
-is_bssSegment(vaddr_t vaddr, struct addrspace* as) {
-    vaddr_t offset = (vaddr_t)(as->as_npages_data << 12);
-    if (vaddr <= as->as_vbase_bss + offset) {
-        if (vaddr >= as->as_vbase_bss) {
-            return 1;
-        }
-    }
-    return 0;
 }
 

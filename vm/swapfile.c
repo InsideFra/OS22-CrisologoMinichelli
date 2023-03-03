@@ -40,7 +40,7 @@ int swapfile_init(void){
     if(result){
        panic("Something has gone wrong with swapfile creation\n"); 
     } else {
-       kprintf("swapfile opened correctly\n"); 
+       kprintf("VM: swapfile opened correctly\n"); 
     }
 
     //swapfile has to be empty
@@ -57,7 +57,12 @@ int swapfile_init(void){
     return 0;
 }
 
-
+/**
+ * Find the index in the swap file list using page number and pid;
+ * @param {uint32_t} page_num - Index number in the swap file.
+ * @param {pid_t} pid - Process ID (not supported yet).
+ * @return {int} index if found in the list or noEntryFound.
+ */
 int swapfile_checkv1(uint32_t page_num, pid_t pid){
     //we have to check if the requested page is saved into swapfile
     //off_t page_offset;
@@ -74,43 +79,6 @@ int swapfile_checkv1(uint32_t page_num, pid_t pid){
 	}
     return noEntryFound;
 }
-
-//int swapfile_check(uint32_t page_num, pid_t pid){
-//    //we have to check if the requested page is saved into swapfile
-//    //off_t page_offset;
-//    int index;
-//    uint32_t address;
-//    uint32_t victim_page;
-//    if((index = sf_pageSearch(page_num, pid)) < 0){
-//
-//        /*--------------------PAGE NOT FOUND--------------------*/
-//
-//        return noEntryFound;
-//    } else if(index >= 0){
-//
-//        /*--------------------PAGE FOUND------------------------*/
-//
-//        //before swap-in operation, we need to check if there is space in RAM
-//            //address can be:
-//            // 0 => no space in RAM, swapOut operation is needed
-//            // >0 => slot available in RAM, "address" is the address in RAM where we can store swapped page from DISK 
-//        if(!(address = alloc_kpages(1))){
-//            victim_page = victim_pageSearch();
-//            address = victim_page*PAGE_SIZE + MIPS_KSEG0;
-//            swapOut((uint32_t*)address);
-//        }
-//        if(swapIn(index, (uint32_t*) address)){
-//            //error in swapping operation in RAM
-//            return -1;
-//        } else {
-//            //page copied in RAM
-//            return 0;
-//        }
-//
-//    }
-//    return 1;
-//}
-
 
 int sf_pageSearch(uint32_t page_num, pid_t pid){
     for(uint32_t i = 0; i < SWAPFILE_SIZE; i++){
@@ -136,7 +104,11 @@ int sf_freeSearch(void){
     return noEntryFound;
 }
 
-
+/**
+ * Find the index using swapfile_checkv1(p_num, curproc->pid);
+ * @param {int} index - Index number in the swap file.
+ * @return {int} 0 if no error.
+ */
 int swapIn(int index){
     gettime(&before);
 	int RAM_address;

@@ -139,9 +139,4 @@ int               as_define_stack(struct addrspace *as, vaddr_t *initstackptr);
 
 int load_elf(struct vnode *v, vaddr_t *entrypoint, vaddr_t start, uint32_t npages);
 
-int is_dataSegment(vaddr_t vaddr, struct addrspace* as);
-int is_codeSegment(vaddr_t vaddr, struct addrspace* as);
-int is_bssSegment(vaddr_t vaddr, struct addrspace* as);
-
-
 #endif /* _ADDRSPACE_H_ */

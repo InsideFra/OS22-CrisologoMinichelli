@@ -17,6 +17,7 @@
 #include <kern/time.h>
 #include <clock.h>
 #include <syscall.h>
+#include <segments.h>
 
 // This variables indicates if the vm has been initialized
 _Bool VM_Started = false;
@@ -67,6 +68,7 @@ void vm_bootstrap(void) {
 		main_PG[PAGETABLE_ENTRY-1-i].Valid = 1;
 	}
 
+	DEBUG(DB_VMINIT, "VM: Memory starts from: 0x%x until 0x%x\n", MIPS_KSEG0, PADDR_TO_KVADDR(RAM_Size));
 	DEBUG(DB_VMINIT, "VM: Memory available starts from frame: %d until frame %d\n", RAM_FirstFree/PAGE_SIZE, PAGETABLE_ENTRY - (RAM_Size-location)/PAGE_SIZE - 1);
 	DEBUG(DB_VMINIT, "VM: sizeof(invertedPT): %d bytes, entries: %d, total = %d bytes\n", sizeof(struct invertedPT), PAGETABLE_ENTRY, sizeof(struct invertedPT)*PAGETABLE_ENTRY);
 	//print_frame_list();
@@ -204,8 +206,7 @@ vm_fault(int faulttype, struct trapframe *tf)
 						if(!(result = alloc_kpages(1))){
 						  //page table full, we have to free a page
 							victim_page = victim_pageSearch(data_seg);
-							paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;	
-							//swapOut((uint32_t*)paddress);
+							paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;
               				free_kpages(paddress);
 							result = alloc_kpages(1);
 						}
@@ -346,12 +347,18 @@ vm_fault(int faulttype, struct trapframe *tf)
 						/*allocate page in PT*/
 						if(!(result = alloc_kpages(1))){
 							//page table full, we have to free a page
+							
 							victim_page = victim_pageSearch(data_seg);
-							paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;	
+							if (victim_page != noEntryFound) {
+								paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;	
 							
-							swapOut((uint32_t*)paddress);
-              				SF_Writes++;
-							
+								swapOut((uint32_t*)paddress);
+              					SF_Writes++;
+								
+							} else {
+								panic(" ");
+							}
+
 							result = alloc_kpages(1);
 						}
 
