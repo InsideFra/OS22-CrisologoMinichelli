@@ -125,7 +125,7 @@ int addPT(uint32_t frame_index, vaddr_t vaddr, uint32_t pid, bool Dirty) {
 * @author @Marco_Embed
 * @param bool type: 0 code segment, 1 data segment
 * @date 20/09/2022
-* @return page number of victim page;
+* @return page number of victim page or noEntryFound is error;
 */
 int victim_pageSearch(bool type){
     uint32_t min_value;

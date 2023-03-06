@@ -183,6 +183,7 @@ int swapOut(uint32_t* RAM_address){
     int index = sf_freeSearch();
     if(index == noEntryFound){
         //no space on disk
+        panic("ERROR: Out of swap space!!\n");
         panic("ERROR: disk is full!!\n");
     }
     offset = sf_list[index].p_offset*PAGE_SIZE;

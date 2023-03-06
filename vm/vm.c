@@ -201,13 +201,14 @@ vm_fault(int faulttype, struct trapframe *tf)
 				if (is_codeSegment(faultaddress, as)) {
 					faultaddress &= PAGE_FRAME;
 
-					index = swapfile_checkv1(p_num, curproc->pid);
-					if(index == noEntryFound){
 						/*---------------------------- LOAD FOR THE FIRST TIME -------------------*/
 						/*allocate page in PT*/
 						if(!(result = alloc_kpages(1))){
 						  //page table full, we have to free a page
-							victim_page = victim_pageSearch(data_seg);
+							victim_page = victim_pageSearch(code_seg);
+							if (victim_page == noEntryFound) {
+								panic("No victim found.");
+							}
 							paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;
               				free_kpages(paddress);
 							result = alloc_kpages(1);
@@ -240,18 +241,6 @@ vm_fault(int faulttype, struct trapframe *tf)
 
             			PF_Disk++;
 					  	PF_ELF++;
-					} else {
-						/*---------------------------- SWAP IN NEEDED ---------------------------*/
-						victim_page = victim_pageSearch(code_seg);
-						paddress = victim_page*PAGE_SIZE + MIPS_KSEG0;
-						if(swapOut((uint32_t*)paddress) == 0){
-							SF_Writes++;
-							
-							swapIn(index);
-							PF_Swapfile++;
-							PF_Disk++;
-						}
-					}
 
 					// gettime(&after);
 					// timespec_sub(&after, &before, &duration);
