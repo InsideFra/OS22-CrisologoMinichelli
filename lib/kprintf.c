@@ -42,7 +42,7 @@
 
 
 /* Flags word for DEBUG() macro. */
-uint32_t dbflags = DB_VM | DB_VMINIT | DB_EXEC;
+uint32_t dbflags = DB_VM | DB_VMINIT;
 //uint32_t dbflags = DB_TLB;
 //uint32_t dbflags = DB_EXEC | DB_VMINIT ;
 //uint32_t dbflags = 0;

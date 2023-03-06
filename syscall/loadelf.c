@@ -95,7 +95,7 @@ load_segment(struct addrspace *as, struct vnode *v,
 		filesize = memsize;
 	}
 
-	DEBUG(DB_EXEC, "ELF: Loading %lu bytes to 0x%lx\n",
+	DEBUG(DB_EXEC, "ELF: Loading %lu bytes to vAddr: 0x%lx\n",
 	      (unsigned long) memsize, (unsigned long) vaddr);
 	
 	if (is_dataSegment(vaddr, as)) {
