@@ -177,6 +177,8 @@ vm_fault(int faulttype, struct trapframe *tf)
 			// This fault happen when a program tries to write to a only-read segment.
 			// If such exception occurs, the kernel must terminate the process.
 			// The kernel should not crash!
+			kprintf("Closing the program as it is trying to write to a CODE segment address.\n");
+			kprintf("The fault address is 0x%x and the page number %d\n", faultaddress, p_num);
 			sys__exit(0);
 			break;
 	    case VM_FAULT_READ:
@@ -233,7 +235,8 @@ vm_fault(int faulttype, struct trapframe *tf)
 						vfs_close(v);
 
 						// The code segment has been load and now is write protected
-						main_PG[((result-MIPS_KSEG0)/PAGE_SIZE)].Dirty = 0;
+						//main_PG[((result-MIPS_KSEG0)/PAGE_SIZE)].Dirty = 0;
+						// No need to do this, this function has been moved to load_elf() function.
 
             			PF_Disk++;
 					  	PF_ELF++;

@@ -47,6 +47,7 @@ int swapfile_init(void){
     for(int i = 0; i<SWAPFILE_SIZE; i++){
        sf_list[i].p_number = 0;
        sf_list[i].p_pid = 0;
+       sf_list[i].Dirty = 0;
        sf_list[i].p_offset = i;
     }
 
@@ -156,7 +157,8 @@ int swapIn(int index){
 
     /*---------------------------------- SF LIST UPDATE -------------------------------------------------*/
     sf_list[index].p_number = 0; 
-    sf_list[index].p_pid = 0; 
+    sf_list[index].p_pid = 0;
+    sf_list[index].Dirty = 0; 
     //kprintf("swapIN: Index: %d, pAddr: 0x%x\n", index, (uint32_t)RAM_address);
     gettime(&after);
     timespec_sub(&after, &before, &duration);
@@ -205,6 +207,7 @@ int swapOut(uint32_t* RAM_address){
     //kprintf("(swapOUT  ): [%3d] PN: %x\n", index, main_PG[pt_index].page_number);
     sf_list[index].p_number = main_PG[pt_index].page_number; 
     sf_list[index].p_pid = main_PG[pt_index].pid;
+    sf_list[index].Dirty = main_PG[pt_index].Dirty;
 
     /*---------------------------------- PT LIST and TLB LIST UPDATE ------------------------------------*/
     free_kpages((uint32_t)RAM_address);
