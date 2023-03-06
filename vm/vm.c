@@ -179,6 +179,12 @@ vm_fault(int faulttype, struct trapframe *tf)
 			// The kernel should not crash!
 			kprintf("Closing the program as it is trying to write to a CODE segment address.\n");
 			kprintf("The fault address is 0x%x and the page number %d\n", faultaddress, p_num);
+			
+			TLB_Faults--; // If the program crashes, we should decrease this variable
+			if (freeTLBEntries)
+				TLB_Faults_wFree--;
+			else
+				TLB_Faults_wReplace--;
 			sys__exit(0);
 			break;
 	    case VM_FAULT_READ:
